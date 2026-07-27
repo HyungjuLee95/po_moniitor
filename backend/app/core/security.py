@@ -14,11 +14,13 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "OPERATOR": {
         "monitoring:read", "channels:read", "channels:control", "messages:read",
         "incidents:read", "incidents:resolve", "collectors:read", "collectors:run",
-        "interfaces:read",
+        "interfaces:read", "dashboard:read", "dashboard:write", "alerts:read",
+        "alerts:acknowledge", "llm-search:read",
     },
     "VIEWER": {
         "monitoring:read", "channels:read", "messages:read", "incidents:read",
-        "collectors:read", "interfaces:read",
+        "collectors:read", "interfaces:read", "dashboard:read", "dashboard:write",
+        "alerts:read", "llm-search:read",
     },
 }
 

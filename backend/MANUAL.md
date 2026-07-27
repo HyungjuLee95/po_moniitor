@@ -1,0 +1,8 @@
+# Backend MANUAL
+
+- router는 HTTP 계약과 권한 검사만 담당한다.
+- service는 업무 로직, repository는 PostgreSQL, adapter는 SAP PO 호출을 담당한다.
+- 모든 변경 API는 역할 permission을 검사하고 감사 이력을 남길 수 있어야 한다.
+- PostgreSQL schema/table/column/index는 소문자 snake_case만 사용한다.
+- migration은 `NNN_description.sql`로 추가한다.
+- SAP 호출은 SID registry 검증 후 수행하며 credential과 base_url을 반환하지 않는다.

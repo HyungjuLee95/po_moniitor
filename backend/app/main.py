@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.database import check_database
 from app.domains.auth.router import router as auth_router
+from app.domains.alerts.router import router as alerts_router
 from app.domains.channels.router import router as channels_router
 from app.domains.collectors.router import router as collectors_router
 from app.domains.configuration.router import router as configuration_router
@@ -13,6 +14,8 @@ from app.domains.incidents.router import router as incidents_router
 from app.domains.interfaces.router import router as interfaces_router
 from app.domains.messages.router import router as messages_router
 from app.domains.monitoring.router import router as monitoring_router
+from app.domains.dashboard.router import router as dashboard_router
+from app.domains.llm_search.router import router as llm_search_router
 
 
 @asynccontextmanager
@@ -39,10 +42,13 @@ app.add_middleware(
 for router in (
     auth_router,
     configuration_router,
+    dashboard_router,
     monitoring_router,
     channels_router,
     messages_router,
     incidents_router,
+    alerts_router,
+    llm_search_router,
     collectors_router,
     interfaces_router,
 ):
