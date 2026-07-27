@@ -1,2 +1,2 @@
 # Channels MANUAL
-조회는 `channels:read`, 제어는 `channels:control`과 서버 `channel-control` capability가 필요하다. 제어 결과는 SAP 상태 재조회 후 확정한다.
+조회는 Systatus `getChannInfo`, inventory/detail은 CommunicationChannelIn `Query/Read`를 사용한다. 제어는 ChannelAdmin `setChannelAutomationStatus` 후 `startChannels/stopChannels`, `getChannelAutomationStatus` 검증 순서다. 비밀번호 포함 상세는 `channels:secrets` 권한이 필요하다.

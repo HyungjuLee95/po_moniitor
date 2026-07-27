@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.core.security import require_permissions
 from app.domains.configuration.registry import ServerRegistry
+from app.domains.messages.service import MessageService
 
 
 router = APIRouter(prefix="/collectors", tags=["Collectors"])
@@ -47,16 +49,19 @@ def run_collectors(
         ServerRegistry().require_capability(sid, "collector")
         for sid in dict.fromkeys(requested)
     ]
-    return {
-        "data": [
+    results = []
+    for server in servers:
+        rows = MessageService().list_recent(server, 1000)
+        results.append(
             {
                 "sid": server.sid,
                 "status": "SUCCESS",
-                "fetched": 0,
+                "fetched": len(rows),
                 "requested_by": user["username"],
-                "source": "demo",
+                "source": "demo" if not settings.sap_po_live_mode else "sap-po-aae-monitor",
             }
-            for server in servers
-        ],
+        )
+    return {
+        "data": results,
         "meta": {"execution": "sequential"},
     }

@@ -17,3 +17,20 @@ React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`
 | llm_search | 장애 원인 검색 UI |
 
 작업 전 `MANUAL.md`, `SKILL.md`, 대상 도메인의 네 문서를 읽는다.
+
+## 실행 명령
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN\frontend
+npm install
+npm run dev
+```
+
+검증과 운영 빌드:
+
+```powershell
+npm run lint
+npm test
+npm run build
+npm run start
+```

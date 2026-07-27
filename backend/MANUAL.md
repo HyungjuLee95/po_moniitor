@@ -6,3 +6,4 @@
 - PostgreSQL schema/table/column/index는 소문자 snake_case만 사용한다.
 - migration은 `NNN_description.sql`로 추가한다.
 - SAP 호출은 SID registry 검증 후 수행하며 credential과 base_url을 반환하지 않는다.
+- 기존 RTIMS Oracle은 모니터링 원본으로 유지하고 PostgreSQL과 혼합하거나 마이그레이션하지 않는다.

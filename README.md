@@ -37,17 +37,97 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 
 ## 실행
 
+### 1. 최초 1회 준비
+
 ```powershell
+cd D:\toyproject\PO_MONITOR_MAIN
 Copy-Item .env.example .env
+
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+
+cd frontend
+npm install
+cd ..
+```
+
+### 2. 백엔드 실행 — 터미널 1
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+```
+
+또는:
+
+```powershell
 .\start-backend.bat
+```
+
+### 3. 프론트 실행 — 터미널 2
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN\frontend
+npm run dev
+```
+
+또는 프로젝트 루트에서:
+
+```powershell
 .\start-frontend.bat
 ```
 
-프론트는 `http://localhost:3000`, 백엔드는 `http://localhost:8000`, API 문서는 `http://localhost:8000/docs`를 사용한다. 데모 계정은 `.env`에서 관리한다.
+### 4. 운영 빌드
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN\frontend
+npm run build
+npm run start
+```
+
+프론트는 `http://localhost:3000`, 백엔드는 `http://localhost:8000`, API 문서는 `http://localhost:8000/docs`, 상태 확인은 `http://localhost:8000/health`를 사용한다.
+
+### 5. SAP PO 실데이터 전환
+
+```env
+DEMO_MODE=true
+SAP_PO_LIVE_MODE=true
+SAP_PO_USER=현재 사용 가능한 SAP PO API 계정
+SAP_PO_PASSWORD=현재 비밀번호
+SAP_VERIFY_TLS=false
+```
+
+`DEMO_MODE`는 로그인/DB 모드이고 `SAP_PO_LIVE_MODE`는 SAP 호출 모드다. 처음 사내망에서 확인할 때는 위 조합으로 데모 로그인을 유지하면서 SAP 데이터만 실호출할 수 있다. 운영 계정 DB가 준비되면 `DEMO_MODE=false`로 변경한다.
+
+기존 RTIMS Oracle을 사용할 때는 `.env`의 `RTIMS_ENABLED=true`와 `RTIMS_ORACLE_*` 값을 설정한다. 이 경우 대시보드 통계·최근 메시지·장애는 RTIMS에서 조회하고, 채널 실시간 상태·제어·audit은 SAP PO API를 호출한다. PostgreSQL은 사용자·권한·대시보드 개인 설정용으로 별도 유지한다.
+
+### 6. PostgreSQL migration
+
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\001_initial.sql
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\002_dashboard_alert_llm.sql
+```
 
 ## 서버 추가
 
 `.env`의 `PO_SERVERS_JSON` 배열에 서버를 추가하고 백엔드를 재시작한다. bootstrap API가 공개 가능한 서버 정보만 내려주므로 프론트 선택 목록은 코드 변경 없이 자동 갱신된다.
+
+실제 SAP 서버 주소와 계정은 `.env`에만 작성한다. `.env.example`에는 운영값을 커밋하지 않는다.
+
+연결 점검 API:
+
+```text
+GET /api/v1/configuration/sap-po-check?sid=POQ
+GET /api/v1/configuration/rtims-check
+```
 
 ## 변경 완료 조건
 

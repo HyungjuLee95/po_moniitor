@@ -5,3 +5,43 @@ Python 3.11.7/FastAPI/PostgreSQL 기반 API다. `app/core`는 환경·보안, `a
 도메인은 `auth`, `configuration`, `dashboard`, `monitoring`, `channels`, `messages`, `interfaces`, `incidents`, `collectors`, `alerts`, `llm_search`로 구성한다. API prefix는 `/api/v1`이다.
 
 실제 SAP PO 호출 구현 전 각 도메인의 MANUAL에서 endpoint와 timeout, 마스킹, 오류 변환 규칙을 확인한다.
+
+## 실행 명령
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+```
+
+API 문서: `http://localhost:8000/docs`
+
+## SAP 연결 smoke test
+
+백엔드 실행 후 로그인 토큰을 발급받아 다음 API를 확인한다.
+
+```text
+GET /api/v1/channels?sid=POQ
+GET /api/v1/channels/inventory?sid=POQ&component_id=*
+GET /api/v1/messages?sid=POQ&limit=20
+GET /api/v1/interfaces?sid=POQ
+GET /api/v1/monitoring/summary?sid=POQ
+```
+
+채널 제어는 `SAP_CONTROL_ALLOWED_SIDS_RAW`에 명시된 SID만 허용한다.
+
+## 데이터 원본 우선순위
+
+| 데이터 | 원본 |
+|---|---|
+| 채널 실시간 상태 | SAP PO Systatus SOAP |
+| 채널 목록·상세 | CommunicationChannelIn SOAP |
+| 채널 시작·중지 | ChannelAdmin SOAP |
+| 채널 비밀번호 | Directory HTTP API, ADMIN 전용 |
+| 최근 메시지·대시보드·장애 | 기존 RTIMS Oracle |
+| 메시지 audit | AdapterMessageMonitoring SOAP |
+| 사용자·권한·개인 대시보드 | PostgreSQL |
+
+RTIMS가 비활성화되면 최근 메시지와 대시보드는 AaeMessageMonitor SOAP을 사용한다.
