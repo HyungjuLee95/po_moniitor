@@ -23,6 +23,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   const [summary, setSummary] = useState<MonitoringSummary>(fallbackSummary);
   const [channels, setChannels] = useState<ChannelRow[]>(fallbackChannels);
   const [connected, setConnected] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const dashboard = useDashboardLayout();
@@ -57,6 +58,15 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
       });
   }, [selectedSid, servers]);
 
+  useEffect(() => {
+    if (!navigationOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavigationOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [navigationOpen]);
+
   const activeServer = servers.find((server) => server.sid === selectedSid);
   const activeNavigation = nav.find((item) => item.id === view) ?? nav[0];
   const openAlerts = mockAlerts.filter((alert) => alert.status === "open");
@@ -81,15 +91,16 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
 
   return (
     <main className={`console-shell density-${dashboard.layout.density}`}>
-      <aside className="side-navigation">
+      <aside id="primary-navigation" className={`side-navigation ${navigationOpen ? "open" : ""}`}>
         <div className="brand-lockup">
           <span className="brand-symbol">PO</span>
           <div><b>MONITOR MAIN</b><small>OPERATIONS CONSOLE</small></div>
+          <button className="navigation-close" onClick={() => setNavigationOpen(false)} aria-label="메뉴 닫기">×</button>
         </div>
         <nav aria-label="주 메뉴">
           <p className="nav-caption">WORKSPACE</p>
           {nav.map((item) => (
-            <button key={item.id} className={item.id === view ? "active" : ""} onClick={() => setView(item.id)}>
+            <button key={item.id} className={item.id === view ? "active" : ""} onClick={() => { setView(item.id); setNavigationOpen(false); }}>
               <span>{item.glyph}</span>
               <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
             </button>
@@ -108,9 +119,20 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
 
       <section className="console-main">
         <header className="console-topbar">
-          <div>
+          <div className="topbar-identity">
+            <button
+              className="menu-button"
+              onClick={() => setNavigationOpen(true)}
+              aria-controls="primary-navigation"
+              aria-expanded={navigationOpen}
+              aria-label="주 메뉴 열기"
+            >
+              <span /><span /><span />
+            </button>
+            <div>
             <p className="breadcrumb">PO MONITOR / {activeNavigation.eyebrow}</p>
             <h1>{activeNavigation.label}</h1>
+            </div>
           </div>
           <div className="topbar-actions">
             <label className="server-switcher">
@@ -154,6 +176,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         </div>
       </section>
 
+      {navigationOpen && <button className="navigation-scrim" onClick={() => setNavigationOpen(false)} aria-label="메뉴 닫기" />}
       {editorOpen && (
         <>
           <button className="drawer-scrim" onClick={() => setEditorOpen(false)} aria-label="편집 닫기" />

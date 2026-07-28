@@ -18,6 +18,9 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 | `frontend` | React 화면, 사용자 대시보드, 알림, LLM 검색 UI | `frontend/README.md` |
 | `backend` | FastAPI, 인증·권한, SAP PO 연동, PostgreSQL | `backend/README.md` |
 
+기존 프로젝트 분석 자료와 현재 이식 상태의 차이는
+[`docs/LEGACY_FEATURE_COVERAGE.md`](docs/LEGACY_FEATURE_COVERAGE.md)를 기준으로 확인한다.
+
 ## 도메인 지도
 
 | 도메인 | Frontend | Backend | 책임 |
