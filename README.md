@@ -46,14 +46,15 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 
 ### 1. 최초 1회 준비
 
+사내망에서는 `venv`를 사용하지 않는다. `python --version` 결과가 `Python 3.11.7`인지 확인한 뒤 시스템 Python에 백엔드 패키지를 직접 설치한다.
+
 ```powershell
 cd D:\toyproject\PO_MONITOR_MAIN
 Copy-Item .env.example .env
 
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python --version
 python -m pip install --upgrade pip
-pip install -r backend\requirements.txt
+python -m pip install -r backend\requirements.txt
 
 cd frontend
 npm install
@@ -64,8 +65,7 @@ cd ..
 
 ```powershell
 cd D:\toyproject\PO_MONITOR_MAIN
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
 ```
 
 또는:

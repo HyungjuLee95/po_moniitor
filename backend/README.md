@@ -10,13 +10,13 @@ Python 3.11.7/FastAPI/PostgreSQL 기반 API다. `app/core`는 환경·보안, `a
 
 ```powershell
 cd D:\toyproject\PO_MONITOR_MAIN
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
-uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+python -m pip install -r backend\requirements.txt
+python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
 ```
 
 API 문서: `http://localhost:8000/docs`
+
+사내망에서는 Python 가상환경을 생성하지 않는다. `python --version`이 `3.11.7`인지 먼저 확인하고 모든 백엔드 패키지를 해당 시스템 Python에 직접 설치한다. 패키지 설치와 모듈 실행은 `pip` 또는 `uvicorn` 단독 명령 대신 `python -m ...` 형식을 사용한다.
 
 ## SAP 연결 smoke test
 

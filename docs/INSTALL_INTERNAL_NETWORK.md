@@ -37,7 +37,6 @@ PO_MONITOR_MAIN/
 
 ```text
 .git/
-.venv/
 node_modules/
 dist/
 frontend/node_modules/
@@ -85,10 +84,10 @@ npm install --global npm@11.13.0
 
 ### 백엔드
 
+이 프로젝트의 사내망 설치 절차는 `venv` 또는 `virtualenv`를 사용하지 않는다. `python --version`이 정확히 `3.11.7`인지 확인한 뒤 서버의 시스템 Python에 패키지를 직접 설치한다. 다른 Python 버전의 `pip`가 실행되는 것을 막기 위해 모든 명령은 `python -m pip` 형식을 사용한다.
+
 ```powershell
 cd D:\PO_MONITOR_MAIN
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r backend\requirements.txt
 ```
@@ -187,7 +186,7 @@ npm --strict-ssl=false ci
 ```powershell
 cd D:\PO_MONITOR_MAIN
 New-Item -ItemType Directory -Force offline\python-wheels
-py -3.11 -m pip download `
+python -m pip download `
   --dest offline\python-wheels `
   -r backend\requirements-dev.txt
 ```
@@ -195,8 +194,6 @@ py -3.11 -m pip download `
 사내망에서 설치:
 
 ```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
 python -m pip install `
   --no-index `
   --find-links offline\python-wheels `
@@ -256,8 +253,7 @@ $psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
 
 ```powershell
 cd D:\PO_MONITOR_MAIN
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
 ```
 
 터미널 2:
@@ -283,6 +279,5 @@ npm run lint
 npm test
 
 cd D:\PO_MONITOR_MAIN
-.\.venv\Scripts\Activate.ps1
-pytest backend\tests
+python -m pytest backend\tests
 ```
