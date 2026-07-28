@@ -13,6 +13,7 @@ export const fallbackSummary: MonitoringSummary = {
   messages_today: 284391,
   success_rate: 99.72,
   average_latency_ms: 842,
+  latency_window_minutes: 15,
   source: "demo",
 };
 

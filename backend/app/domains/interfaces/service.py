@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.config import PoServer, settings
 from app.integrations.sap_po.client import call, soap_client
 from app.integrations.sap_po.normalize import pick, records
+from app.integrations.rtims.repository import RtimsRepository
 
 
 class InterfaceService:
@@ -36,3 +37,23 @@ class InterfaceService:
                 }
             )
         return result
+
+    def topology(self, server: PoServer) -> list[dict]:
+        if settings.rtims_configured:
+            return RtimsRepository().topology(server.sid)
+        return [
+            {
+                "source_system": "ERP",
+                "target_system": "SAP PO",
+                "interface_name": f"IF_{server.sid}_ORDER_IN",
+                "source_namespace": "urn:company:erp",
+                "target_namespace": "urn:company:po",
+            },
+            {
+                "source_system": "SAP PO",
+                "target_system": "MES",
+                "interface_name": f"IF_{server.sid}_ORDER_OUT",
+                "source_namespace": "urn:company:po",
+                "target_namespace": "urn:company:mes",
+            },
+        ]

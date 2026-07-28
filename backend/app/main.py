@@ -11,10 +11,13 @@ from app.domains.alerts.router import router as alerts_router
 from app.domains.channels.router import router as channels_router
 from app.domains.collectors.router import router as collectors_router
 from app.domains.configuration.router import router as configuration_router
+from app.domains.configuration.repository import ConfigurationRepository
+from app.domains.configuration.registry import ServerRegistry
 from app.domains.incidents.router import router as incidents_router
 from app.domains.interfaces.router import router as interfaces_router
 from app.domains.messages.router import router as messages_router
 from app.domains.monitoring.router import router as monitoring_router
+from app.domains.workspaces.router import router as workspaces_router
 from app.integrations.sap_po.errors import SapPoError
 from app.integrations.rtims.repository import RtimsError
 from app.domains.dashboard.router import router as dashboard_router
@@ -25,6 +28,7 @@ from app.domains.llm_search.router import router as llm_search_router
 async def lifespan(_: FastAPI):
     if settings.database_connect_on_startup and not settings.demo_mode:
         check_database()
+        ConfigurationRepository().sync_servers(ServerRegistry().list_enabled())
     yield
 
 
@@ -64,6 +68,7 @@ for router in (
     llm_search_router,
     collectors_router,
     interfaces_router,
+    workspaces_router,
 ):
     app.include_router(router, prefix=settings.api_prefix)
 

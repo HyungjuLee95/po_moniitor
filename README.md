@@ -20,6 +20,8 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 
 기존 프로젝트 분석 자료와 현재 이식 상태의 차이는
 [`docs/LEGACY_FEATURE_COVERAGE.md`](docs/LEGACY_FEATURE_COVERAGE.md)를 기준으로 확인한다.
+사내망 설치 파일과 `pip`/`npm` 인증서·오프라인 설치 절차는
+[`docs/INSTALL_INTERNAL_NETWORK.md`](docs/INSTALL_INTERNAL_NETWORK.md)를 따른다.
 
 ## 도메인 지도
 
@@ -35,8 +37,10 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 | interfaces | O | O | 인터페이스 기준정보 |
 | incidents | O | O | 장애 이력과 해결 |
 | collectors | O | O | 증분 수집과 checkpoint |
+| workspaces | O | O | 프로젝트 작업·진행 단계 관리 |
 | alerts | O | O | 실시간 알림·확인 처리 |
 | llm_search | O | O | 오류 원인 검색 계약 |
+| settings | O | configuration/auth/collectors 사용 | 연결·기준·사용자·수집 관리 |
 
 ## 실행
 
@@ -117,6 +121,14 @@ SAP_VERIFY_TLS=false
 & "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
   -h localhost -p 5432 -U postgres -d po_monitor `
   -f backend\migrations\002_dashboard_alert_llm.sql
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\003_workspaces.sql
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\004_monitoring_policy_and_iam.sql
 ```
 
 ## 서버 추가

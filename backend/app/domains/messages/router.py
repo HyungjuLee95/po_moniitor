@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.core.config import settings
-from app.core.security import require_permissions
+from app.core.security import require_permissions, require_server_access
 from app.domains.configuration.registry import ServerRegistry
 from app.domains.messages.service import MessageService
 from app.integrations.rtims.repository import RtimsRepository
@@ -15,6 +15,7 @@ def list_messages(
     sid: str,
     limit: int = Query(default=20, ge=1, le=1000),
     _: dict = Depends(require_permissions("messages:read")),
+    __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
     rows = (
@@ -41,6 +42,7 @@ def message_audit(
     message_id: str,
     sid: str,
     _: dict = Depends(require_permissions("messages:read")),
+    __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "audit")
     rows = MessageService().audit(server, message_id)

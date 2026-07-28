@@ -2,7 +2,7 @@
 
 Python 3.11.7/FastAPI/PostgreSQL 기반 API다. `app/core`는 환경·보안, `app/domains`는 업무 기능, `migrations`는 순차 DB 변경을 담당한다.
 
-도메인은 `auth`, `configuration`, `dashboard`, `monitoring`, `channels`, `messages`, `interfaces`, `incidents`, `collectors`, `alerts`, `llm_search`로 구성한다. API prefix는 `/api/v1`이다.
+도메인은 `auth`, `configuration`, `dashboard`, `monitoring`, `channels`, `messages`, `interfaces`, `incidents`, `collectors`, `workspaces`, `alerts`, `llm_search`로 구성한다. API prefix는 `/api/v1`이다.
 
 실제 SAP PO 호출 구현 전 각 도메인의 MANUAL에서 endpoint와 timeout, 마스킹, 오류 변환 규칙을 확인한다.
 
@@ -28,6 +28,11 @@ GET /api/v1/channels/inventory?sid=POQ&component_id=*
 GET /api/v1/messages?sid=POQ&limit=20
 GET /api/v1/interfaces?sid=POQ
 GET /api/v1/monitoring/summary?sid=POQ
+GET /api/v1/monitoring/performance?sid=POQ&hours=24
+GET /api/v1/monitoring/resources?sid=POQ
+GET /api/v1/monitoring/queues?sid=POQ
+GET /api/v1/monitoring/slow-messages?sid=POQ
+GET /api/v1/workspaces
 ```
 
 채널 제어는 `SAP_CONTROL_ALLOWED_SIDS_RAW`에 명시된 SID만 허용한다.

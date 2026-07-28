@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
-from app.core.security import require_permissions
+from app.core.security import require_permissions, require_server_access
 from app.domains.configuration.registry import ServerRegistry
 from app.integrations.rtims.repository import RtimsRepository
 
@@ -21,6 +21,7 @@ def list_incidents(
     offset: int = Query(default=0, ge=0),
     hours: int = Query(default=24, ge=1, le=168),
     _: dict = Depends(require_permissions("incidents:read")),
+    __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
     if settings.rtims_configured:

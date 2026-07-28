@@ -8,11 +8,13 @@ React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`
 | dashboard | 위젯 registry, 배치, 개인 설정 |
 | server | 서버 선택 표시 계약 |
 | monitoring | 운영 요약 시각화 |
-| channels | 채널 상태 |
-| messages | 메시지 추적 |
-| interfaces | 인터페이스 목록 |
+| channels | 채널 상태·제어·채널별 통계 |
+| messages | 최근 메시지와 Message ID Audit |
+| interfaces | 시스템별 채널과 topology |
 | incidents | 장애 관리 |
-| collectors | Collector 상태 |
+| collectors | 환경 설정 하위 Collector 상태 |
+| workspaces | 프로젝트 작업과 단계 진행 |
+| settings | 연결·모니터링 기준·사용자 권한·수집 상태 |
 | alerts | 상단 점멸 알림과 목록 |
 | llm_search | 장애 원인 검색 UI |
 

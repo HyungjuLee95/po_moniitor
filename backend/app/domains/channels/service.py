@@ -197,6 +197,11 @@ class ChannelService:
             }
         client = soap_client(server.sid, "channel_admin")
         factory = client.type_factory("ns0")
+        automation_states = {
+            "AUTOMATIC": "SCHEDULER",
+            "MANUAL": "MANUAL",
+            "EXTERNAL": "WEBSERVICE",
+        }
         results = []
         for target in targets:
             descriptor = factory.channelAdminDescriptor(
@@ -205,17 +210,29 @@ class ChannelService:
                 party="",
             )
             try:
-                call(
-                    client.service.setChannelAutomationStatus,
-                    channels=[descriptor],
-                    automationState="WEBSERVICE",
-                )
-                operation = (
-                    client.service.startChannels
-                    if action == "START"
-                    else client.service.stopChannels
-                )
-                call(operation, channel=[descriptor], language="EN")
+                if action == "START":
+                    call(
+                        client.service.setChannelAutomationStatus,
+                        channels=[descriptor],
+                        automationState="WEBSERVICE",
+                    )
+                    call(
+                        client.service.startChannels,
+                        channel=[descriptor],
+                        language="EN",
+                    )
+                elif action == "STOP":
+                    call(
+                        client.service.stopChannels,
+                        channel=[descriptor],
+                        language="EN",
+                    )
+                elif action in automation_states:
+                    call(
+                        client.service.setChannelAutomationStatus,
+                        channels=[descriptor],
+                        automationState=automation_states[action],
+                    )
                 verification = call(
                     client.service.getChannelAutomationStatus,
                     channels=[descriptor],

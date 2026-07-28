@@ -7,13 +7,21 @@ export function formatLatencySeconds(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(3)}초`;
 }
 
-export function HealthMetrics({ summary }: { summary: MonitoringSummary }) {
+export function HealthMetrics({
+  summary,
+  expanded,
+  onToggle,
+}: {
+  summary: MonitoringSummary;
+  expanded: "issues" | "latency" | null;
+  onToggle: (value: "issues" | "latency") => void;
+}) {
   return (
     <section className="metric-grid">
       <Metric label="전체 채널" value={summary.channels.total.toLocaleString()} meta={`${summary.channels.running}개 정상 운영`} accent="blue" trend="+1.8%" />
       <Metric label="오늘 메시지" value={summary.messages_today.toLocaleString()} meta={`${summary.success_rate}% 성공률`} accent="green" trend="+6.4%" />
-      <Metric label="확인 필요" value={summary.channels.error.toLocaleString()} meta={`${summary.channels.stopped}개 중지`} accent="red" trend="즉시 확인" />
-      <Metric label="평균 응답" value={formatLatencySeconds(summary.average_latency_ms)} meta="최근 15분 기준" accent="violet" trend="-0.012초" />
+      <Metric label="확인 필요" value={summary.channels.error.toLocaleString()} meta={`${summary.channels.stopped}개 중지`} accent="red" trend={expanded === "issues" ? "접기" : "상세 보기"} onClick={() => onToggle("issues")} expanded={expanded === "issues"} />
+      <Metric label="평균 응답" value={formatLatencySeconds(summary.average_latency_ms)} meta={`최근 ${summary.latency_window_minutes}분 기준`} accent="violet" trend={expanded === "latency" ? "접기" : "지연 목록"} onClick={() => onToggle("latency")} expanded={expanded === "latency"} />
     </section>
   );
 }
@@ -33,12 +41,16 @@ export function ThroughputWidget() {
   );
 }
 
-function Metric({ label, value, meta, accent, trend }: { label: string; value: string; meta: string; accent: string; trend: string }) {
-  return (
-    <article className={`metric-card ${accent}`}>
+function Metric({ label, value, meta, accent, trend, onClick, expanded }: { label: string; value: string; meta: string; accent: string; trend: string; onClick?: () => void; expanded?: boolean }) {
+  const content = (
+    <>
       <div><span>{label}</span><i /></div>
       <strong>{value}</strong>
       <footer><small>{meta}</small><em>{trend}</em></footer>
-    </article>
+    </>
   );
+  if (onClick) {
+    return <button className={`metric-card metric-action ${accent}`} onClick={onClick} aria-expanded={expanded}>{content}</button>;
+  }
+  return <article className={`metric-card ${accent}`}>{content}</article>;
 }

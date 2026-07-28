@@ -3,14 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "../../core/api";
-import { navigationFor } from "../../core/navigation";
-import type { Bootstrap, ChannelRow, MonitoringSummary, PoServer, User, ViewId } from "../../core/types";
+import { navigationCategories, navigationFor } from "../../core/navigation";
+import type { Bootstrap, ChannelRow, MonitoringPolicy, MonitoringSummary, PoServer, SlowMessage, User, ViewId } from "../../core/types";
 import { AlertDrawer } from "../alerts/AlertDrawer";
 import { IncidentWatchWidget } from "../alerts/IncidentWatchWidget";
 import { mockAlerts } from "../alerts/mockAlerts";
+import type { AlertItem } from "../alerts/types";
 import { ChannelStatusWidget } from "../channels/ChannelStatusWidget";
+import { ChannelsPage } from "../channels/ChannelsPage";
+import { CollectorsPage } from "../collectors/CollectorsPage";
+import { IncidentsPage } from "../incidents/IncidentsPage";
+import { InterfacesPage } from "../interfaces/InterfacesPage";
+import { TopologyPage } from "../interfaces/TopologyPage";
+import { MessagesPage } from "../messages/MessagesPage";
 import { HealthMetrics, ThroughputWidget } from "../monitoring/MonitoringWidgets";
+import { DashboardInsightPanel } from "../monitoring/DashboardInsightPanel";
+import { PerformancePage } from "../monitoring/PerformancePage";
 import { ServerProfileWidget } from "../server/ServerProfileWidget";
+import { SettingsPage } from "../settings/SettingsPage";
+import { WorkspacesPage } from "../workspaces/WorkspacesPage";
 import { DashboardEditor } from "./DashboardEditor";
 import { fallbackChannels, fallbackServers, fallbackSummary } from "./mockData";
 import type { WidgetId } from "./types";
@@ -23,19 +34,28 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   const [summary, setSummary] = useState<MonitoringSummary>(fallbackSummary);
   const [channels, setChannels] = useState<ChannelRow[]>(fallbackChannels);
   const [connected, setConnected] = useState(false);
+  const [alerts, setAlerts] = useState<AlertItem[]>(mockAlerts);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [expandedMetric, setExpandedMetric] = useState<"issues" | "latency" | null>(null);
+  const [slowMessages, setSlowMessages] = useState<SlowMessage[]>([]);
+  const [monitoringPolicy, setMonitoringPolicy] = useState<MonitoringPolicy | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
   const dashboard = useDashboardLayout();
   const nav = useMemo(() => navigationFor(user.role), [user.role]);
+  const navGroups = useMemo(
+    () => navigationCategories
+      .map((category) => ({ ...category, items: nav.filter((item) => item.category === category.id) }))
+      .filter((category) => category.items.length),
+    [nav],
+  );
 
   useEffect(() => {
     apiFetch<Bootstrap>("/configuration/bootstrap")
       .then((payload) => {
-        if (payload.servers.length) {
-          setServers(payload.servers);
-          setSelectedSid(payload.servers[0].sid);
-        }
+        setServers(payload.servers);
+        setSelectedSid(payload.servers[0]?.sid ?? "");
         setConnected(true);
       })
       .catch(() => setConnected(false));
@@ -59,6 +79,13 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   }, [selectedSid, servers]);
 
   useEffect(() => {
+    if (!selectedSid) return;
+    apiFetch<{ data: Array<Omit<AlertItem, "occurredAt"> & { occurred_at: string }> }>(`/alerts?sid=${encodeURIComponent(selectedSid)}`)
+      .then((payload) => setAlerts(payload.data.map((alert) => ({ ...alert, occurredAt: alert.occurred_at }))))
+      .catch(() => setAlerts(mockAlerts.filter((alert) => alert.sid === selectedSid)));
+  }, [selectedSid]);
+
+  useEffect(() => {
     if (!navigationOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setNavigationOpen(false);
@@ -69,15 +96,48 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
 
   const activeServer = servers.find((server) => server.sid === selectedSid);
   const activeNavigation = nav.find((item) => item.id === view) ?? nav[0];
-  const openAlerts = mockAlerts.filter((alert) => alert.status === "open");
+  const openAlerts = alerts.filter((alert) => alert.status === "open");
   const criticalCount = openAlerts.filter((alert) => alert.severity === "critical").length;
+
+  const toggleMetric = async (metric: "issues" | "latency") => {
+    if (expandedMetric === metric) {
+      setExpandedMetric(null);
+      return;
+    }
+    setExpandedMetric(metric);
+    if (metric !== "latency") return;
+    setInsightLoading(true);
+    try {
+      const payload = await apiFetch<{ data: SlowMessage[]; meta: MonitoringPolicy & { count: number } }>(
+        `/monitoring/slow-messages?sid=${encodeURIComponent(selectedSid)}`,
+      );
+      setSlowMessages(payload.data);
+      setMonitoringPolicy(payload.meta);
+    } catch {
+      setSlowMessages([]);
+    } finally {
+      setInsightLoading(false);
+    }
+  };
 
   const renderWidget = (widgetId: WidgetId) => {
     if (dashboard.layout.hidden.includes(widgetId)) return null;
 
     switch (widgetId) {
       case "health":
-        return <HealthMetrics summary={summary} key={widgetId} />;
+        return (
+          <div className="health-widget-stack" key={widgetId}>
+            <HealthMetrics summary={summary} expanded={expandedMetric} onToggle={(metric) => void toggleMetric(metric)} />
+            <DashboardInsightPanel
+              mode={expandedMetric}
+              channels={channels}
+              alerts={openAlerts}
+              slowMessages={slowMessages}
+              policy={monitoringPolicy}
+              loading={insightLoading}
+            />
+          </div>
+        );
       case "throughput":
         return <ThroughputWidget key={widgetId} />;
       case "server_profile":
@@ -86,6 +146,53 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         return <ChannelStatusWidget channels={channels} key={widgetId} />;
       case "incidents":
         return <IncidentWatchWidget alerts={openAlerts} onOpen={() => setAlertsOpen(true)} key={widgetId} />;
+    }
+  };
+
+  const renderView = () => {
+    if (!selectedSid && view !== "workspaces") {
+      return (
+        <section className="surface domain-stage">
+          <p className="kicker">SERVER ACCESS</p>
+          <h2>접근 가능한 서버가 없습니다.</h2>
+          <p>admin 사용자에게 서버 접근 권한을 요청하세요.</p>
+        </section>
+      );
+    }
+    switch (view) {
+      case "overview":
+        return <section className="dashboard-canvas">{dashboard.layout.order.map(renderWidget)}</section>;
+      case "channels":
+        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} />;
+      case "channel_control":
+        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} controlMode />;
+      case "messages":
+        return <MessagesPage sid={selectedSid} />;
+      case "audit":
+        return <MessagesPage sid={selectedSid} auditOnly />;
+      case "interfaces":
+        return <InterfacesPage sid={selectedSid} />;
+      case "performance":
+        return <PerformancePage sid={selectedSid} />;
+      case "topology":
+        return <TopologyPage sid={selectedSid} />;
+      case "workspaces":
+        return <WorkspacesPage user={user} />;
+      case "incidents":
+        return <IncidentsPage sid={selectedSid} user={user} />;
+      case "collectors":
+        return <CollectorsPage user={user} />;
+      case "settings":
+        return <SettingsPage sid={selectedSid} server={activeServer} servers={servers} user={user} />;
+      default:
+        return (
+          <section className="surface domain-stage">
+            <p className="kicker">{activeNavigation.eyebrow} DOMAIN</p>
+            <h2>{activeNavigation.label}</h2>
+            <p>{selectedSid} 서버를 기준으로 기능이 연결될 영역입니다. 해당 도메인의 README, MANUAL, SKILL, ERROR 문서를 기준으로 다음 기능을 확장합니다.</p>
+            <code>/api/v1/{view}</code>
+          </section>
+        );
     }
   };
 
@@ -98,12 +205,16 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
           <button className="navigation-close" onClick={() => setNavigationOpen(false)} aria-label="메뉴 닫기">×</button>
         </div>
         <nav aria-label="주 메뉴">
-          <p className="nav-caption">WORKSPACE</p>
-          {nav.map((item) => (
-            <button key={item.id} className={item.id === view ? "active" : ""} onClick={() => { setView(item.id); setNavigationOpen(false); }}>
-              <span>{item.glyph}</span>
-              <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
-            </button>
+          {navGroups.map((group) => (
+            <section className="nav-group" aria-labelledby={`nav-group-${group.id}`} key={group.id}>
+              <p className="nav-caption" id={`nav-group-${group.id}`}>{group.label}</p>
+              {group.items.map((item) => (
+                <button key={item.id} className={item.id === view ? "active" : ""} onClick={() => { setView(item.id); setNavigationOpen(false); }}>
+                  <span>{item.glyph}</span>
+                  <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
+                </button>
+              ))}
+            </section>
           ))}
         </nav>
         <div className={`connection-card ${connected ? "connected" : ""}`}>
@@ -138,7 +249,8 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
             <label className="server-switcher">
               <i className={activeServer?.environment ?? ""} />
               <span><small>ACTIVE SERVER</small>
-                <select value={selectedSid} onChange={(event) => setSelectedSid(event.target.value)} aria-label="SAP PO 서버 선택">
+                <select value={selectedSid} onChange={(event) => setSelectedSid(event.target.value)} aria-label="SAP PO 서버 선택" disabled={!servers.length}>
+                  {!servers.length && <option value="">접근 서버 없음</option>}
                   {servers.map((server) => <option key={server.sid} value={server.sid}>{server.display_name} · {server.sid}</option>)}
                 </select>
               </span>
@@ -161,18 +273,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
             <div className="live-clock"><i /><span><b>LIVE</b><small>30초마다 자동 갱신</small></span></div>
           </section>
 
-          {view === "overview" ? (
-            <section className="dashboard-canvas">
-              {dashboard.layout.order.map(renderWidget)}
-            </section>
-          ) : (
-            <section className="surface domain-stage">
-              <p className="kicker">{activeNavigation.eyebrow} DOMAIN</p>
-              <h2>{activeNavigation.label}</h2>
-              <p>{selectedSid} 서버를 기준으로 기능이 연결될 영역입니다. 해당 도메인의 README, MANUAL, SKILL, ERROR 문서를 기준으로 다음 기능을 확장합니다.</p>
-              <code>/api/v1/{view}</code>
-            </section>
-          )}
+          {renderView()}
         </div>
       </section>
 
@@ -192,7 +293,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
           />
         </>
       )}
-      <AlertDrawer alerts={mockAlerts} open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      <AlertDrawer alerts={alerts} open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </main>
   );
 }

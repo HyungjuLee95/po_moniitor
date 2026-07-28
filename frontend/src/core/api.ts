@@ -21,5 +21,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     Object.assign(error, { status: response.status });
     throw error;
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }

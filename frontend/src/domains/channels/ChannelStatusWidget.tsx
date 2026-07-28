@@ -1,5 +1,6 @@
 import type { ChannelRow } from "../../core/types";
 import { PanelHeader } from "../dashboard/PanelHeader";
+import { formatLatencySeconds } from "../monitoring/MonitoringWidgets";
 
 export function ChannelStatusWidget({ channels }: { channels: ChannelRow[] }) {
   return (
@@ -12,7 +13,7 @@ export function ChannelStatusWidget({ channels }: { channels: ChannelRow[] }) {
             <span><b>{channel.channel_id}</b><small>{channel.sid}</small></span>
             <span>{channel.component_id}</span>
             <span>{channel.direction}</span>
-            <span>{channel.latency_ms == null ? "—" : `${channel.latency_ms}ms`}</span>
+            <span>{channel.latency_ms == null ? "—" : formatLatencySeconds(channel.latency_ms)}</span>
             <span><Status value={channel.status} /></span>
           </div>
         ))}

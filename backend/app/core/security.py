@@ -16,11 +16,13 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "incidents:read", "incidents:resolve", "collectors:read", "collectors:run",
         "interfaces:read", "dashboard:read", "dashboard:write", "alerts:read",
         "alerts:acknowledge", "llm-search:read",
+        "workspaces:read", "workspaces:write",
     },
     "VIEWER": {
         "monitoring:read", "channels:read", "messages:read", "incidents:read",
         "collectors:read", "interfaces:read", "dashboard:read", "dashboard:write",
         "alerts:read", "llm-search:read",
+        "workspaces:read",
     },
 }
 
@@ -59,11 +61,27 @@ def current_user(
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="invalid or expired token") from exc
     role = str(payload.get("role", "VIEWER")).upper()
-    return {
+    user = {
         "username": str(payload["sub"]),
         "role": role,
         "permissions": permissions_for(role),
     }
+    from app.domains.auth.repository import UserRepository
+    user["allowed_sids"] = UserRepository().allowed_sids(user["username"], role)
+    return user
+
+
+def require_server_access(
+    sid: str,
+    user: dict = Depends(current_user),
+) -> dict:
+    allowed_sids = user.get("allowed_sids")
+    if allowed_sids is not None and sid.upper() not in allowed_sids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="server access denied",
+        )
+    return user
 
 
 def require_permissions(*required: str):
