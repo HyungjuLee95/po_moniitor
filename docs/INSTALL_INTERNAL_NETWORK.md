@@ -15,6 +15,7 @@ PO_MONITOR_MAIN/
 │  ├─ migrations/002_dashboard_alert_llm.sql
 │  ├─ migrations/003_workspaces.sql
 │  ├─ migrations/004_monitoring_policy_and_iam.sql
+│  ├─ migrations/005_required_feature_domains.sql
 │  ├─ requirements.txt
 │  └─ requirements-dev.txt
 ├─ frontend/
@@ -245,6 +246,7 @@ $psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\002_dashboard_alert_llm.sql
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\003_workspaces.sql
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\004_monitoring_policy_and_iam.sql
+& $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\005_required_feature_domains.sql
 ```
 
 ## 8. 실행과 확인

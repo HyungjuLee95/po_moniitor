@@ -1,0 +1,1 @@
+"""Knowledge posts domain."""

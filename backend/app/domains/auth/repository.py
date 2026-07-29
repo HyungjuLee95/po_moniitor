@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import secrets
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
 
@@ -37,6 +39,12 @@ _demo_users: dict[str, dict] = {
         "server_sids": [],
     },
 }
+_demo_passwords = {
+    "admin": settings.demo_admin_password,
+    "operator": "demo1234",
+    "viewer": "demo1234",
+}
+_demo_reset_requests: list[dict] = []
 
 
 def hash_password(password: str, iterations: int = 310_000) -> str:
@@ -64,12 +72,16 @@ def verify_password(password: str, encoded: str) -> bool:
 class UserRepository:
     def authenticate(self, username: str, password: str) -> dict | None:
         if settings.demo_mode:
-            if (
-                username == settings.demo_admin_username
-                and password == settings.demo_admin_password
-            ):
-                return {"username": username, "display_name": "Demo Administrator", "role": "ADMIN"}
-            return None
+            if username == settings.demo_admin_username:
+                _demo_passwords.setdefault(username, settings.demo_admin_password)
+            row = _demo_users.get(username)
+            if not row or not row["active"] or _demo_passwords.get(username) != password:
+                return None
+            return {
+                "username": username,
+                "display_name": row["display_name"],
+                "role": row["role"],
+            }
 
         with session_scope() as session:
             row = session.execute(
@@ -141,6 +153,7 @@ class UserRepository:
                 "server_sids": server_sids,
             }
             _demo_users[username] = row
+            _demo_passwords[username] = password
             return dict(row)
 
         with session_scope() as session:
@@ -232,6 +245,10 @@ class UserRepository:
             if username not in _demo_users:
                 raise LookupError("user not found")
             _demo_users[username]["first_login"] = True
+            _demo_passwords[username] = password
+            for request in _demo_reset_requests:
+                if request["username"] == username and request["used_at"] is None:
+                    request["used_at"] = datetime.now(timezone.utc).isoformat()
             return
 
         with session_scope() as session:
@@ -248,6 +265,183 @@ class UserRepository:
             if not updated:
                 raise LookupError("user not found")
             self._audit(session, actor, username, "RESET_PASSWORD", {})
+
+    def change_password(
+        self,
+        username: str,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        if settings.demo_mode:
+            if _demo_passwords.get(username) != current_password:
+                raise ValueError("current password is invalid")
+            _demo_passwords[username] = new_password
+            _demo_users[username]["first_login"] = False
+            return
+        with session_scope() as session:
+            row = session.execute(
+                text(
+                    """
+                    select password_hash from iam.app_user
+                    where username = :username and active = true
+                    """
+                ),
+                {"username": username},
+            ).scalar_one_or_none()
+            if row is None or not verify_password(current_password, row):
+                raise ValueError("current password is invalid")
+            session.execute(
+                text(
+                    """
+                    update iam.app_user
+                    set password_hash = :password_hash, first_login = false,
+                        updated_at = now()
+                    where username = :username
+                    """
+                ),
+                {"username": username, "password_hash": hash_password(new_password)},
+            )
+            self._audit(session, username, username, "CHANGE_PASSWORD", {})
+
+    def request_password_reset(self, username: str) -> None:
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        placeholder_hash = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+        if settings.demo_mode:
+            if username in _demo_users:
+                _demo_reset_requests.append(
+                    {
+                        "request_id": len(_demo_reset_requests) + 1,
+                        "username": username,
+                        "requested_at": datetime.now(timezone.utc).isoformat(),
+                        "expires_at": expires_at.isoformat(),
+                        "used_at": None,
+                        "token_hash": placeholder_hash,
+                    }
+                )
+            return
+        with session_scope() as session:
+            exists = session.execute(
+                text("select 1 from iam.app_user where username = :username and active = true"),
+                {"username": username},
+            ).scalar_one_or_none()
+            if exists:
+                session.execute(
+                    text(
+                        """
+                        insert into iam.password_reset_request (
+                            username, token_hash, expires_at
+                        ) values (:username, :token_hash, :expires_at)
+                        """
+                    ),
+                    {
+                        "username": username,
+                        "token_hash": placeholder_hash,
+                        "expires_at": expires_at,
+                    },
+                )
+
+    def list_password_reset_requests(self) -> list[dict]:
+        if settings.demo_mode:
+            return [
+                {key: value for key, value in row.items() if key != "token_hash"}
+                for row in _demo_reset_requests
+                if row["used_at"] is None
+            ]
+        with session_scope() as session:
+            rows = session.execute(
+                text(
+                    """
+                    select request_id, username, requested_at, expires_at, used_at
+                    from iam.password_reset_request
+                    where used_at is null and expires_at > now()
+                    order by requested_at
+                    """
+                )
+            ).mappings().all()
+        return [dict(row) for row in rows]
+
+    def issue_password_reset_token(self, request_id: int) -> str:
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        if settings.demo_mode:
+            for row in _demo_reset_requests:
+                if row["request_id"] == request_id and row["used_at"] is None:
+                    row["token_hash"] = token_hash
+                    row["expires_at"] = expires_at.isoformat()
+                    return token
+            raise LookupError("reset request not found")
+        with session_scope() as session:
+            updated = session.execute(
+                text(
+                    """
+                    update iam.password_reset_request
+                    set token_hash = :token_hash, expires_at = :expires_at
+                    where request_id = :request_id and used_at is null
+                    """
+                ),
+                {
+                    "request_id": request_id,
+                    "token_hash": token_hash,
+                    "expires_at": expires_at,
+                },
+            ).rowcount
+        if not updated:
+            raise LookupError("reset request not found")
+        return token
+
+    def consume_password_reset(self, token: str, new_password: str) -> None:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        if settings.demo_mode:
+            for row in _demo_reset_requests:
+                if (
+                    row["token_hash"] == token_hash
+                    and row["used_at"] is None
+                    and datetime.fromisoformat(row["expires_at"]) > datetime.now(timezone.utc)
+                ):
+                    _demo_passwords[row["username"]] = new_password
+                    _demo_users[row["username"]]["first_login"] = False
+                    row["used_at"] = datetime.now(timezone.utc).isoformat()
+                    return
+            raise ValueError("invalid or expired reset token")
+        with session_scope() as session:
+            row = session.execute(
+                text(
+                    """
+                    select request_id, username
+                    from iam.password_reset_request
+                    where token_hash = :token_hash and used_at is null
+                      and expires_at > now()
+                    for update
+                    """
+                ),
+                {"token_hash": token_hash},
+            ).mappings().first()
+            if row is None:
+                raise ValueError("invalid or expired reset token")
+            session.execute(
+                text(
+                    """
+                    update iam.app_user
+                    set password_hash = :password_hash, first_login = false,
+                        updated_at = now()
+                    where username = :username
+                    """
+                ),
+                {
+                    "username": row["username"],
+                    "password_hash": hash_password(new_password),
+                },
+            )
+            session.execute(
+                text(
+                    """
+                    update iam.password_reset_request
+                    set used_at = now() where request_id = :request_id
+                    """
+                ),
+                {"request_id": row["request_id"]},
+            )
 
     def get_user(self, username: str) -> dict:
         for row in self.list_users():

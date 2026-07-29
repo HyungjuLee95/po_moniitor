@@ -43,3 +43,21 @@ def interface_topology(
             "source": "rtims-oracle" if settings.rtims_configured else "demo",
         },
     }
+
+
+@router.get("/namespaces")
+def namespace_inventory(
+    sid: str,
+    _: dict = Depends(require_permissions("interfaces:read")),
+    __: dict = Depends(require_server_access),
+) -> dict:
+    server = ServerRegistry().require_capability(sid, "monitor")
+    rows = InterfaceService().namespace_inventory(server)
+    return {
+        "data": rows,
+        "meta": {
+            "sid": server.sid,
+            "count": len(rows),
+            "source": "demo" if not settings.sap_po_live_mode else "sap-po-interface-monitor",
+        },
+    }

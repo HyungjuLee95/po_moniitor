@@ -15,6 +15,10 @@ from app.database import session_scope
 WidgetId = Literal[
     "health",
     "throughput",
+    "system_results",
+    "queue_status",
+    "live_interfaces",
+    "daily_checks",
     "channel_status",
     "incidents",
     "server_profile",
@@ -22,16 +26,50 @@ WidgetId = Literal[
 ALL_WIDGETS = [
     "health",
     "throughput",
+    "system_results",
+    "queue_status",
+    "live_interfaces",
+    "daily_checks",
     "channel_status",
     "incidents",
     "server_profile",
 ]
+ALL_VIEWS = {
+    "overview", "realtime_interfaces", "channels", "incidents", "messages",
+    "audit", "interfaces", "performance", "system_status", "topology",
+    "namespaces", "channel_control", "channel_bulk", "hrd", "hrd_test",
+    "daily_checks", "workspaces", "oracle_ifs", "posts", "account", "settings",
+}
 
 
 class DashboardLayout(BaseModel):
     order: list[WidgetId] = Field(default_factory=lambda: list(ALL_WIDGETS))
-    hidden: list[WidgetId] = Field(default_factory=list)
+    hidden: list[WidgetId] = Field(
+        default_factory=lambda: ["channel_status", "server_profile"]
+    )
     density: Literal["comfortable", "compact"] = "comfortable"
+    favorite_views: list[str] = Field(default_factory=list)
+    recent_views: list[str] = Field(default_factory=list)
+    view_usage: dict[str, int] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def upgrade_legacy_layout(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        upgraded = dict(value)
+        existing = list(upgraded.get("order") or [])
+        is_legacy = any(widget not in existing for widget in ALL_WIDGETS)
+        upgraded["order"] = existing + [
+            widget for widget in ALL_WIDGETS if widget not in existing
+        ]
+        hidden = list(upgraded.get("hidden") or [])
+        if is_legacy:
+            for widget in ("channel_status", "server_profile"):
+                if widget not in hidden:
+                    hidden.append(widget)
+        upgraded["hidden"] = hidden
+        return upgraded
 
     @model_validator(mode="after")
     def validate_widgets(self) -> "DashboardLayout":
@@ -41,6 +79,18 @@ class DashboardLayout(BaseModel):
             raise ValueError("widget order must contain every registered widget")
         if not set(self.hidden).issubset(set(self.order)):
             raise ValueError("hidden widget is not registered")
+        if not set(self.favorite_views).issubset(ALL_VIEWS):
+            raise ValueError("favorite view is not registered")
+        if not set(self.recent_views).issubset(ALL_VIEWS):
+            raise ValueError("recent view is not registered")
+        if not set(self.view_usage).issubset(ALL_VIEWS):
+            raise ValueError("view usage contains an unregistered view")
+        self.favorite_views = list(dict.fromkeys(self.favorite_views))[:8]
+        self.recent_views = list(dict.fromkeys(self.recent_views))[:8]
+        self.view_usage = {
+            key: max(0, min(int(value), 1_000_000))
+            for key, value in self.view_usage.items()
+        }
         return self
 
 

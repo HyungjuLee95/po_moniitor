@@ -1,8 +1,10 @@
 export type Role = "ADMIN" | "OPERATOR" | "VIEWER";
 export type ViewId =
   | "overview"
+  | "realtime_interfaces"
   | "channels"
   | "channel_control"
+  | "channel_bulk"
   | "messages"
   | "audit"
   | "interfaces"
@@ -11,7 +13,15 @@ export type ViewId =
   | "incidents"
   | "collectors"
   | "workspaces"
-  | "settings";
+  | "settings"
+  | "hrd"
+  | "hrd_test"
+  | "daily_checks"
+  | "namespaces"
+  | "system_status"
+  | "oracle_ifs"
+  | "posts"
+  | "account";
 
 export type User = {
   username: string;
@@ -39,6 +49,8 @@ export type MonitoringSummary = {
   server_name: string;
   channels: { total: number; running: number; error: number; stopped: number };
   messages_today: number;
+  failed_messages: number;
+  pending_messages: number;
   success_rate: number;
   average_latency_ms: number;
   latency_window_minutes: number;
@@ -82,6 +94,9 @@ export type ChannelRow = {
   direction: string;
   status: "Running" | "Error" | "Stopped";
   latency_ms: number | null;
+  adapter_type?: string;
+  automation?: string;
+  raw_status?: string;
 };
 
 export type ChannelInventoryRow = Partial<ChannelRow> & {

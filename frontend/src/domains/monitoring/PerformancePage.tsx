@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "../../core/api";
 
@@ -70,6 +70,15 @@ export function PerformancePage({ sid }: { sid: string }) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [hours, sid]);
+  const resourcesByNode = useMemo(() => {
+    const grouped = new Map<string, Resource[]>();
+    resources.forEach((resource) => {
+      const rows = grouped.get(resource.node) ?? [];
+      rows.push(resource);
+      grouped.set(resource.node, rows);
+    });
+    return [...grouped.entries()];
+  }, [resources]);
 
   return (
     <section className="feature-page">
@@ -78,20 +87,32 @@ export function PerformancePage({ sid }: { sid: string }) {
         <label className="compact-select"><span>집계 기간</span><select value={hours} onChange={(event) => setHours(event.target.value)}><option value="6">6시간</option><option value="24">24시간</option><option value="72">3일</option><option value="168">7일</option></select></label>
       </header>
       {notice && <p className="inline-notice">{notice}</p>}
-      <div className="resource-grid">
-        {resources.map((resource) => {
-          const limit = Number(resource.max_limit) || 100;
-          const usage = Number(resource.recent_usage) || 0;
-          return (
-            <article key={`${resource.resource_id}-${resource.node}`}>
-              <header><span>{resource.resource_type}</span><small>{resource.node}</small></header>
-              <h3>{resource.resource_name}</h3>
-              <strong>{usage.toFixed(1)}<small> / {limit.toFixed(0)}</small></strong>
-              <div className="progress-track"><i style={{ width: `${Math.min(100, usage / limit * 100)}%` }} /></div>
+      <section className="node-resource-board">
+        <div className="table-caption"><b>노드별 CPU·Memory 통합 사용률</b><span>{resourcesByNode.length} nodes</span></div>
+        <div className="node-resource-grid">
+          {resourcesByNode.map(([node, nodeResources]) => (
+            <article key={node}>
+              <header><b>{node}</b><span>{nodeResources.length} resources</span></header>
+              {nodeResources.map((resource) => {
+                const limit = Number(resource.max_limit) || 100;
+                const usage = Number(resource.recent_usage) || 0;
+                const maximum = Number(resource.max_usage) || 0;
+                return (
+                  <div className="node-resource-row" key={`${resource.resource_id}-${resource.node}`}>
+                    <div><span>{resource.resource_type}</span><b>{resource.resource_name}</b></div>
+                    <div className="resource-combined-track">
+                      <i className="resource-max" style={{ width: `${Math.min(100, maximum / limit * 100)}%` }} />
+                      <i className="resource-current" style={{ width: `${Math.min(100, usage / limit * 100)}%` }} />
+                    </div>
+                    <strong>{usage.toFixed(1)}<small>% · MAX {maximum.toFixed(1)}</small></strong>
+                  </div>
+                );
+              })}
             </article>
-          );
-        })}
-      </div>
+          ))}
+          {!resourcesByNode.length && <p className="empty-state">표시할 노드 리소스가 없습니다.</p>}
+        </div>
+      </section>
       <div className="feature-split">
         <div className="table-card">
           <div className="table-caption"><b>인터페이스 성능</b><span>{performance.length} interfaces</span></div>

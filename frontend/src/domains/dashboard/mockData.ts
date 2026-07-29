@@ -11,6 +11,8 @@ export const fallbackSummary: MonitoringSummary = {
   server_name: "PO Production",
   channels: { total: 128, running: 121, error: 3, stopped: 4 },
   messages_today: 284391,
+  failed_messages: 214,
+  pending_messages: 37,
   success_rate: 99.72,
   average_latency_ms: 842,
   latency_window_minutes: 15,

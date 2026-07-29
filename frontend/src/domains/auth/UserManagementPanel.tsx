@@ -17,6 +17,7 @@ const roleDescriptions: Record<Role, string> = {
   OPERATOR: "모니터링 조회와 채널 운영 권한",
   VIEWER: "모니터링과 Audit 조회 전용",
 };
+type ResetRequest = { request_id: number; username: string; requested_at: string; expires_at: string };
 
 export function UserManagementPanel({ servers, currentUsername }: { servers: PoServer[]; currentUsername: string }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -27,12 +28,18 @@ export function UserManagementPanel({ servers, currentUsername }: { servers: PoS
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
+  const [issuedToken, setIssuedToken] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const payload = await apiFetch<{ data: ManagedUser[] }>("/auth/users");
-      setUsers(payload.data);
+      const [userPayload, resetPayload] = await Promise.all([
+        apiFetch<{ data: ManagedUser[] }>("/auth/users"),
+        apiFetch<{ data: ResetRequest[] }>("/auth/password-reset-requests"),
+      ]);
+      setUsers(userPayload.data);
+      setResetRequests(resetPayload.data);
     } catch {
       setNotice("사용자 목록을 불러오지 못했습니다.");
     } finally {
@@ -66,6 +73,16 @@ export function UserManagementPanel({ servers, currentUsername }: { servers: PoS
       await load();
     } catch {
       setNotice("사용자 생성에 실패했습니다. 아이디 중복과 비밀번호 길이를 확인하세요.");
+    }
+  };
+
+  const issueToken = async (requestId: number) => {
+    try {
+      const payload = await apiFetch<{ data: { token: string } }>(`/auth/password-reset-requests/${requestId}/issue-token`, { method: "POST" });
+      setIssuedToken(payload.data.token);
+      setNotice("30분 유효 1회 토큰을 발급했습니다. 안전한 내부 수단으로 사용자에게 전달하세요.");
+    } catch {
+      setNotice("비밀번호 재설정 토큰 발급에 실패했습니다.");
     }
   };
 
@@ -126,6 +143,10 @@ export function UserManagementPanel({ servers, currentUsername }: { servers: PoS
       </form>
 
       {notice && <p className="inline-notice">{notice}</p>}
+      {issuedToken && <div className="reset-token-box"><b>1회 재설정 토큰</b><code>{issuedToken}</code><button className="row-action" onClick={() => void navigator.clipboard.writeText(issuedToken)}>복사</button></div>}
+      <div className="reset-request-list">
+        {resetRequests.map((request) => <div key={request.request_id}><span><b>{request.username}</b><small>{new Date(request.requested_at).toLocaleString("ko-KR")}</small></span><button className="secondary-button" onClick={() => void issueToken(request.request_id)}>1회 토큰 발급</button></div>)}
+      </div>
       <div className="managed-user-list">
         {users.map((row) => (
           <details key={row.username}>

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from threading import Event, Thread
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -22,14 +23,33 @@ from app.integrations.sap_po.errors import SapPoError
 from app.integrations.rtims.repository import RtimsError
 from app.domains.dashboard.router import router as dashboard_router
 from app.domains.llm_search.router import router as llm_search_router
+from app.domains.hrd.router import router as hrd_router
+from app.domains.oracle_ifs.router import router as oracle_ifs_router
+from app.domains.posts.router import router as posts_router
+from app.domains.oracle_ifs.service import OracleIfsService
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    ifs_stop = Event()
+    ifs_thread = None
     if settings.database_connect_on_startup and not settings.demo_mode:
         check_database()
         ConfigurationRepository().sync_servers(ServerRegistry().list_enabled())
-    yield
+    if settings.ifs_sync_scheduler_enabled and settings.ifs_oracle_configured:
+        ifs_thread = Thread(
+            target=OracleIfsService().run_scheduler,
+            args=(ifs_stop,),
+            name="oracle-ifs-sync",
+            daemon=True,
+        )
+        ifs_thread.start()
+    try:
+        yield
+    finally:
+        ifs_stop.set()
+        if ifs_thread is not None:
+            ifs_thread.join(timeout=5)
 
 
 app = FastAPI(
@@ -69,6 +89,9 @@ for router in (
     collectors_router,
     interfaces_router,
     workspaces_router,
+    hrd_router,
+    oracle_ifs_router,
+    posts_router,
 ):
     app.include_router(router, prefix=settings.api_prefix)
 

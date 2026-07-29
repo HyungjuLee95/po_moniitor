@@ -17,12 +17,15 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "interfaces:read", "dashboard:read", "dashboard:write", "alerts:read",
         "alerts:acknowledge", "llm-search:read",
         "workspaces:read", "workspaces:write",
+        "hrd:read", "hrd:test", "posts:read", "posts:write",
+        "oracle-ifs:read", "oracle-ifs:write",
     },
     "VIEWER": {
         "monitoring:read", "channels:read", "messages:read", "incidents:read",
         "collectors:read", "interfaces:read", "dashboard:read", "dashboard:write",
         "alerts:read", "llm-search:read",
         "workspaces:read",
+        "hrd:read", "posts:read", "oracle-ifs:read",
     },
 }
 

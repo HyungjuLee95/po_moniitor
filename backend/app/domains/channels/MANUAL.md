@@ -6,3 +6,5 @@
 - `AUTOMATIC`/`MANUAL`/`EXTERNAL`: 각각 SCHEDULER/MANUAL/WEBSERVICE automation mode로 변환한다.
 - 통계와 메시지 이력은 RTIMS `MON_MSG_LOG`, `MON_INTF_MAP`을 사용하며 사내 스키마에서 채널명 매핑과 latency 단위를 검증한다.
 - 비밀번호 포함 상세는 `channels:secrets` 권한이 필요하고 목록·로그에 절대 노출하지 않는다.
+- 대량 Excel 추출과 변경 미리보기는 `channels:secrets` 권한이 필요하며 다운로드 응답을 캐시하지 않는다. 미리보기 응답의 비밀번호는 마스킹한다.
+- 일괄 제어는 채널별 `progress`와 최종 `complete` SSE 이벤트를 반환한다.

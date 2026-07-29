@@ -94,11 +94,31 @@ class Settings(BaseSettings):
     sap_business_system_wsdl_path: str = "/BusinessSystemInService/BusinessSystemInImplBean?wsdl"
     sap_interface_monitor_wsdl_path: str = "/InterfaceMonitorService/InterfaceMonitor?wsdl"
     sap_directory_path: str = "/dir/read/ext"
+    sap_hrd_channel_pattern: str = "JDBC4_Receiver_DIST_HRD*"
+    sap_hrd_test_path: str = "/HttpAdapter/HttpMessageServlet"
+    sap_hrd_test_interface: str = ""
+    sap_hrd_sender_services_json: str = "{}"
+    sap_hana_host: str = ""
+    sap_hana_port: int = 30015
+    sap_hana_user: str = ""
+    sap_hana_password: SecretStr = SecretStr("")
     sap_aae_delivery_semantics: str = "BE"
     sap_aae_host_id_table: str = ""
     sap_aae_host_id_field: str = ""
     sap_message_lookback_minutes: int = 60
     sap_control_allowed_sids_raw: str = ""
+
+    ifs_oracle_enabled: bool = False
+    ifs_oracle_host: str = ""
+    ifs_oracle_port: int = 1521
+    ifs_oracle_service: str = ""
+    ifs_oracle_user: str = ""
+    ifs_oracle_password: SecretStr = SecretStr("")
+    ifs_sync_scheduler_enabled: bool = False
+    ifs_sync_interval_seconds: int = 3600
+
+    llm_api_url: str = ""
+    llm_api_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
     demo_admin_username: str = "admin"
     demo_admin_password: str = "demo1234"
@@ -135,6 +155,33 @@ class Settings(BaseSettings):
             and self.rtims_oracle_user
             and self.rtims_oracle_password.get_secret_value()
         )
+
+    @property
+    def sap_hana_configured(self) -> bool:
+        return bool(
+            self.sap_hana_host
+            and self.sap_hana_user
+            and self.sap_hana_password.get_secret_value()
+        )
+
+    @property
+    def sap_hrd_sender_services(self) -> dict[str, str]:
+        raw = json.loads(self.sap_hrd_sender_services_json or "{}")
+        return {str(key).upper(): str(value) for key, value in raw.items()}
+
+    @property
+    def ifs_oracle_configured(self) -> bool:
+        return bool(
+            self.ifs_oracle_enabled
+            and self.ifs_oracle_host
+            and self.ifs_oracle_service
+            and self.ifs_oracle_user
+            and self.ifs_oracle_password.get_secret_value()
+        )
+
+    @property
+    def llm_configured(self) -> bool:
+        return bool(self.llm_api_url.strip())
 
 
 @lru_cache

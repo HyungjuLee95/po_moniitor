@@ -14,20 +14,41 @@ router = APIRouter(prefix="/messages", tags=["Messages"])
 def list_messages(
     sid: str,
     limit: int = Query(default=20, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    hours: int = Query(default=24, ge=1, le=168),
+    status: str | None = Query(default=None, max_length=32),
+    keyword: str | None = Query(default=None, max_length=128),
     _: dict = Depends(require_permissions("messages:read")),
     __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
     rows = (
-        RtimsRepository().recent_messages(server.sid, limit)
+        RtimsRepository().recent_messages(
+            server.sid,
+            limit,
+            offset=offset,
+            hours=hours,
+            status=status,
+            keyword=keyword,
+        )
         if settings.rtims_configured
-        else MessageService().list_recent(server, limit)
+        else MessageService().list_recent(
+            server,
+            limit,
+            hours=hours,
+            status=status,
+            keyword=keyword,
+        )
     )
     return {
         "data": rows,
         "meta": {
             "count": len(rows),
             "sid": server.sid,
+            "hours": hours,
+            "offset": offset,
+            "status": status,
+            "keyword": keyword,
             "source": (
                 "rtims-oracle"
                 if settings.rtims_configured

@@ -1,9 +1,11 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.security import require_permissions
+from app.core.config import settings
+from app.domains.llm_search.provider import JsonLlmProvider, LlmProviderError
 
 
 class AnalysisRequest(BaseModel):
@@ -20,14 +22,30 @@ def analyze(
     request: AnalysisRequest,
     _: dict = Depends(require_permissions("llm-search:read")),
 ) -> dict:
+    if settings.llm_api_url:
+        try:
+            return {
+                "data": JsonLlmProvider().analyze(
+                    request.alert_id,
+                    request.question,
+                    request.context,
+                )
+            }
+        except LlmProviderError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="LLM JSON API request failed",
+            ) from exc
     return {
         "data": {
-            "status": "placeholder",
+            "status": "not_configured",
             "alert_id": request.alert_id,
             "answer": (
-                "LLM 연결 전 준비 응답입니다. 실제 연동 단계에서는 선택한 장애 문맥, "
-                "도메인 MANUAL.md와 ERROR.md, 과거 해결 이력을 검색해 확인 순서를 제안합니다."
+                "LLM_API_URL이 설정되지 않았습니다. .env에 JSON API 주소를 "
+                "설정하고 백엔드를 재시작해 주세요."
             ),
             "sources": [],
+            "confidence": "unknown",
+            "response_format": "json",
         }
     }

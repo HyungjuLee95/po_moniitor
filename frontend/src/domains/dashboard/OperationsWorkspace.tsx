@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "../../core/api";
 import { navigationCategories, navigationFor } from "../../core/navigation";
+import { DASHBOARD_REFRESH_INTERVAL_MS, DASHBOARD_REQUEST_TIMEOUT_MS } from "../../core/refresh";
 import type { Bootstrap, ChannelRow, MonitoringPolicy, MonitoringSummary, PoServer, SlowMessage, User, ViewId } from "../../core/types";
 import { AlertDrawer } from "../alerts/AlertDrawer";
 import { IncidentWatchWidget } from "../alerts/IncidentWatchWidget";
@@ -16,12 +17,21 @@ import { IncidentsPage } from "../incidents/IncidentsPage";
 import { InterfacesPage } from "../interfaces/InterfacesPage";
 import { TopologyPage } from "../interfaces/TopologyPage";
 import { MessagesPage } from "../messages/MessagesPage";
+import { RealtimeInterfacesPage } from "../messages/RealtimeInterfacesPage";
 import { HealthMetrics, ThroughputWidget } from "../monitoring/MonitoringWidgets";
 import { DashboardInsightPanel } from "../monitoring/DashboardInsightPanel";
+import { DailyCheckWidget, LiveInterfacesWidget, QueueThreadWidget, SystemResultsWidget } from "../monitoring/OperationsWidgets";
 import { PerformancePage } from "../monitoring/PerformancePage";
 import { ServerProfileWidget } from "../server/ServerProfileWidget";
 import { SettingsPage } from "../settings/SettingsPage";
 import { WorkspacesPage } from "../workspaces/WorkspacesPage";
+import { HrdPage } from "../hrd/HrdPage";
+import { DailyChecksPage } from "../hrd/DailyChecksPage";
+import { NamespacePage } from "../interfaces/NamespacePage";
+import { SystemStatusPage } from "../monitoring/SystemStatusPage";
+import { OracleIfsPage } from "../oracle_ifs/OracleIfsPage";
+import { PostsPage } from "../posts/PostsPage";
+import { AccountPage } from "../auth/AccountPage";
 import { DashboardEditor } from "./DashboardEditor";
 import { fallbackChannels, fallbackServers, fallbackSummary } from "./mockData";
 import type { WidgetId } from "./types";
@@ -42,6 +52,9 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   const [slowMessages, setSlowMessages] = useState<SlowMessage[]>([]);
   const [monitoringPolicy, setMonitoringPolicy] = useState<MonitoringPolicy | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const dashboard = useDashboardLayout();
   const nav = useMemo(() => navigationFor(user.role), [user.role]);
   const navGroups = useMemo(
@@ -50,6 +63,16 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
       .filter((category) => category.items.length),
     [nav],
   );
+  const frequentNav = useMemo(() => {
+    const favorites = dashboard.layout.favorite_views
+      .map((id) => nav.find((item) => item.id === id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    const favoriteIds = new Set(favorites.map((item) => item.id));
+    const used = nav
+      .filter((item) => !favoriteIds.has(item.id) && (dashboard.layout.view_usage[item.id] ?? 0) > 0)
+      .sort((a, b) => (dashboard.layout.view_usage[b.id] ?? 0) - (dashboard.layout.view_usage[a.id] ?? 0));
+    return [...favorites, ...used].slice(0, 5);
+  }, [dashboard.layout.favorite_views, dashboard.layout.view_usage, nav]);
 
   useEffect(() => {
     apiFetch<Bootstrap>("/configuration/bootstrap")
@@ -63,26 +86,86 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
 
   useEffect(() => {
     if (!selectedSid) return;
-    Promise.all([
-      apiFetch<{ data: MonitoringSummary }>(`/monitoring/summary?sid=${encodeURIComponent(selectedSid)}`),
-      apiFetch<{ data: ChannelRow[] }>(`/channels?sid=${encodeURIComponent(selectedSid)}`),
-    ])
-      .then(([summaryPayload, channelPayload]) => {
-        setSummary(summaryPayload.data);
-        setChannels(channelPayload.data);
-        setConnected(true);
-      })
-      .catch(() => {
-        setSummary({ ...fallbackSummary, sid: selectedSid, server_name: servers.find((server) => server.sid === selectedSid)?.display_name ?? selectedSid });
-        setChannels(fallbackChannels.map((channel) => ({ ...channel, sid: selectedSid })));
-      });
+    let cancelled = false;
+    const load = (initial: boolean) => {
+      if (initial) {
+        setSummaryLoading(true);
+        setChannelsLoading(true);
+      }
+      void apiFetch<{ data: MonitoringSummary }>(
+        `/monitoring/summary?sid=${encodeURIComponent(selectedSid)}`,
+        { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
+      )
+        .then((payload) => {
+          if (cancelled) return;
+          setSummary(payload.data);
+          setConnected(true);
+        })
+        .catch(() => {
+          if (cancelled || !initial) return;
+          setSummary({ ...fallbackSummary, sid: selectedSid, server_name: servers.find((server) => server.sid === selectedSid)?.display_name ?? selectedSid });
+        })
+        .finally(() => {
+          if (!cancelled) setSummaryLoading(false);
+        });
+      void apiFetch<{ data: ChannelRow[] }>(
+        `/channels?sid=${encodeURIComponent(selectedSid)}`,
+        { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
+      )
+        .then((payload) => {
+          if (cancelled) return;
+          setChannels(payload.data);
+          setConnected(true);
+        })
+        .catch(() => {
+          if (cancelled || !initial) return;
+          setChannels(fallbackChannels.map((channel) => ({ ...channel, sid: selectedSid })));
+        })
+        .finally(() => {
+          if (!cancelled) setChannelsLoading(false);
+        });
+    };
+    const initialTimer = window.setTimeout(() => load(true), 0);
+    const refreshTimer = window.setInterval(
+      () => load(false),
+      DASHBOARD_REFRESH_INTERVAL_MS,
+    );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(refreshTimer);
+    };
   }, [selectedSid, servers]);
 
   useEffect(() => {
     if (!selectedSid) return;
-    apiFetch<{ data: Array<Omit<AlertItem, "occurredAt"> & { occurred_at: string }> }>(`/alerts?sid=${encodeURIComponent(selectedSid)}`)
-      .then((payload) => setAlerts(payload.data.map((alert) => ({ ...alert, occurredAt: alert.occurred_at }))))
-      .catch(() => setAlerts(mockAlerts.filter((alert) => alert.sid === selectedSid)));
+    let cancelled = false;
+    const load = (initial: boolean) => {
+      if (initial) setAlertsLoading(true);
+      void apiFetch<{ data: Array<Omit<AlertItem, "occurredAt"> & { occurred_at: string }> }>(
+        `/alerts?sid=${encodeURIComponent(selectedSid)}`,
+        { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
+      )
+        .then((payload) => {
+          if (!cancelled) setAlerts(payload.data.map((alert) => ({ ...alert, occurredAt: alert.occurred_at })));
+        })
+        .catch(() => {
+          if (!cancelled && initial) setAlerts(mockAlerts.filter((alert) => alert.sid === selectedSid));
+        })
+        .finally(() => {
+          if (!cancelled) setAlertsLoading(false);
+        });
+    };
+    const initialTimer = window.setTimeout(() => load(true), 0);
+    const refreshTimer = window.setInterval(
+      () => load(false),
+      DASHBOARD_REFRESH_INTERVAL_MS,
+    );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(refreshTimer);
+    };
   }, [selectedSid]);
 
   useEffect(() => {
@@ -98,6 +181,11 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   const activeNavigation = nav.find((item) => item.id === view) ?? nav[0];
   const openAlerts = alerts.filter((alert) => alert.status === "open");
   const criticalCount = openAlerts.filter((alert) => alert.severity === "critical").length;
+  const selectView = (nextView: ViewId) => {
+    setView(nextView);
+    dashboard.visit(nextView);
+    setNavigationOpen(false);
+  };
 
   const toggleMetric = async (metric: "issues" | "latency") => {
     if (expandedMetric === metric) {
@@ -127,7 +215,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
       case "health":
         return (
           <div className="health-widget-stack" key={widgetId}>
-            <HealthMetrics summary={summary} expanded={expandedMetric} onToggle={(metric) => void toggleMetric(metric)} />
+            <HealthMetrics summary={summary} loading={summaryLoading} expanded={expandedMetric} onToggle={(metric) => void toggleMetric(metric)} />
             <DashboardInsightPanel
               mode={expandedMetric}
               channels={channels}
@@ -139,18 +227,27 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
           </div>
         );
       case "throughput":
-        return <ThroughputWidget key={widgetId} />;
+        return <ThroughputWidget sid={selectedSid} servers={servers} key={widgetId} />;
+      case "system_results":
+        return <SystemResultsWidget sid={selectedSid} onNavigate={selectView} key={widgetId} />;
+      case "queue_status":
+        return <QueueThreadWidget sid={selectedSid} onNavigate={selectView} key={widgetId} />;
+      case "live_interfaces":
+        return <LiveInterfacesWidget sid={selectedSid} onNavigate={selectView} key={widgetId} />;
+      case "daily_checks":
+        return <DailyCheckWidget sid={selectedSid} onNavigate={selectView} key={widgetId} />;
       case "server_profile":
         return <ServerProfileWidget server={activeServer} connected={connected} key={widgetId} />;
       case "channel_status":
-        return <ChannelStatusWidget channels={channels} key={widgetId} />;
+        return <ChannelStatusWidget channels={channelsLoading ? [] : channels} key={widgetId} />;
       case "incidents":
-        return <IncidentWatchWidget alerts={openAlerts} onOpen={() => setAlertsOpen(true)} key={widgetId} />;
+        return <IncidentWatchWidget alerts={openAlerts} loading={alertsLoading} onOpen={() => setAlertsOpen(true)} key={widgetId} />;
     }
   };
 
   const renderView = () => {
-    if (!selectedSid && view !== "workspaces") {
+    const serverIndependentViews: ViewId[] = ["workspaces", "oracle_ifs", "posts", "account"];
+    if (!selectedSid && !serverIndependentViews.includes(view)) {
       return (
         <section className="surface domain-stage">
           <p className="kicker">SERVER ACCESS</p>
@@ -163,9 +260,13 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
       case "overview":
         return <section className="dashboard-canvas">{dashboard.layout.order.map(renderWidget)}</section>;
       case "channels":
-        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} />;
+        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} mode="monitor" />;
       case "channel_control":
-        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} controlMode />;
+        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} mode="control" />;
+      case "channel_bulk":
+        return <ChannelsPage sid={selectedSid} server={activeServer} user={user} mode="bulk" />;
+      case "realtime_interfaces":
+        return <RealtimeInterfacesPage sid={selectedSid} />;
       case "messages":
         return <MessagesPage sid={selectedSid} />;
       case "audit":
@@ -176,6 +277,22 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         return <PerformancePage sid={selectedSid} />;
       case "topology":
         return <TopologyPage sid={selectedSid} />;
+      case "namespaces":
+        return <NamespacePage sid={selectedSid} />;
+      case "system_status":
+        return <SystemStatusPage sid={selectedSid} />;
+      case "hrd":
+        return <HrdPage sid={selectedSid} user={user} />;
+      case "hrd_test":
+        return <HrdPage sid={selectedSid} user={user} testMode />;
+      case "daily_checks":
+        return <DailyChecksPage sid={selectedSid} />;
+      case "oracle_ifs":
+        return <OracleIfsPage user={user} />;
+      case "posts":
+        return <PostsPage user={user} />;
+      case "account":
+        return <AccountPage user={user} />;
       case "workspaces":
         return <WorkspacesPage user={user} />;
       case "incidents":
@@ -205,14 +322,33 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
           <button className="navigation-close" onClick={() => setNavigationOpen(false)} aria-label="메뉴 닫기">×</button>
         </div>
         <nav aria-label="주 메뉴">
+          {frequentNav.length > 0 && (
+            <section className="nav-group frequent-nav-group" aria-labelledby="nav-group-frequent">
+              <p className="nav-caption" id="nav-group-frequent">자주 사용하는 메뉴</p>
+              {frequentNav.map((item) => (
+                <button key={`frequent-${item.id}`} className={item.id === view ? "active" : ""} onClick={() => selectView(item.id)}>
+                  <span>★</span>
+                  <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
+                </button>
+              ))}
+            </section>
+          )}
           {navGroups.map((group) => (
             <section className="nav-group" aria-labelledby={`nav-group-${group.id}`} key={group.id}>
               <p className="nav-caption" id={`nav-group-${group.id}`}>{group.label}</p>
               {group.items.map((item) => (
-                <button key={item.id} className={item.id === view ? "active" : ""} onClick={() => { setView(item.id); setNavigationOpen(false); }}>
-                  <span>{item.glyph}</span>
-                  <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
-                </button>
+                <div className="nav-item-row" key={item.id}>
+                  <button className={item.id === view ? "active" : ""} onClick={() => selectView(item.id)}>
+                    <span>{item.glyph}</span>
+                    <div><small>{item.eyebrow}</small><b>{item.label}</b></div>
+                  </button>
+                  <button
+                    className={`favorite-button ${dashboard.layout.favorite_views.includes(item.id) ? "selected" : ""}`}
+                    onClick={() => dashboard.toggleFavorite(item.id)}
+                    aria-label={`${item.label} ${dashboard.layout.favorite_views.includes(item.id) ? "즐겨찾기 해제" : "즐겨찾기 추가"}`}
+                    title="자주 사용하는 메뉴에 고정"
+                  >★</button>
+                </div>
               ))}
             </section>
           ))}
@@ -270,7 +406,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
               <h2>{user.display_name}님, 운영 흐름을 확인하세요.</h2>
               <p>{activeServer?.display_name} 기준으로 최신 상태를 보여드립니다.</p>
             </div>
-            <div className="live-clock"><i /><span><b>LIVE</b><small>30초마다 자동 갱신</small></span></div>
+            <div className="live-clock"><i /><span><b>LIVE</b><small>15분마다 자동 갱신</small></span></div>
           </section>
 
           {renderView()}

@@ -104,6 +104,68 @@ class RtimsRepository:
             "average_latency_ms": round(float(latency_row["average_latency_ms"] or 0)),
         }
 
+    def message_throughput(
+        self,
+        sid: str,
+        granularity: str = "hour",
+        days: int = 1,
+    ) -> list[dict]:
+        if granularity == "day":
+            bucket_key = "to_char(l.req_start_dtm, 'YYYYMMDD')"
+            bucket_label = "to_char(l.req_start_dtm, 'MM-DD')"
+            window_clause = (
+                "l.req_start_dtm >= trunc(sysdate) - (:days - 1) "
+                "and l.req_start_dtm < trunc(sysdate) + 1"
+            )
+        else:
+            bucket_key = "to_char(l.req_start_dtm, 'YYYYMMDDHH24')"
+            bucket_label = "to_char(l.req_start_dtm, 'HH24:00')"
+            window_clause = (
+                "l.req_start_dtm >= trunc(sysdate) "
+                "and l.req_start_dtm < trunc(sysdate) + 1"
+            )
+
+        sql = f"""
+            select
+                {bucket_key} as bucket,
+                {bucket_label} as label,
+                count(*) as total_count,
+                sum(case when l.msg_status = 'S' then 1 else 0 end) as success_count,
+                sum(case when l.msg_status = 'F' then 1 else 0 end) as fail_count,
+                sum(case when l.msg_status = 'P' then 1 else 0 end) as pending_count,
+                sum(nvl(l.req_msg_size, 0) + nvl(l.res_msg_size, 0))
+                    as total_size_bytes
+            from mon_msg_log l
+            where upper(l.server_id) = upper(:sid)
+              and {window_clause}
+            group by {bucket_key}, {bucket_label}
+            order by bucket
+        """
+        with connection() as conn:
+            with conn.cursor() as cursor:
+                params: dict[str, object] = {"sid": sid}
+                if granularity == "day":
+                    params["days"] = days
+                cursor.execute(sql, params)
+                rows = _rows(cursor)
+        return [
+            {
+                "bucket": str(row["bucket"]),
+                "label": str(row["label"]),
+                "hour": (
+                    int(str(row["bucket"])[-2:])
+                    if granularity == "hour"
+                    else None
+                ),
+                "total_count": int(row.get("total_count") or 0),
+                "success_count": int(row.get("success_count") or 0),
+                "fail_count": int(row.get("fail_count") or 0),
+                "pending_count": int(row.get("pending_count") or 0),
+                "total_size_bytes": int(row.get("total_size_bytes") or 0),
+            }
+            for row in rows
+        ]
+
     def slow_messages(
         self,
         sid: str,
@@ -175,8 +237,41 @@ class RtimsRepository:
         limit: int,
         offset: int = 0,
         hours: int = 24,
+        status: str | None = None,
+        keyword: str | None = None,
     ) -> list[dict]:
-        sql = """
+        clauses = [
+            "upper(server_id) = upper(:sid)",
+            "sent_recv_time >= systimestamp - numtodsinterval(:hours, 'HOUR')",
+        ]
+        params: dict[str, object] = {
+            "sid": sid,
+            "hours": hours,
+            "offset": offset,
+            "limit": limit,
+        }
+        normalized_status = (status or "").strip().upper()
+        status_groups = {
+            "SUCCESS": ("S", "SUCCESS", "DELIVERED", "DLVD"),
+            "FAILED": ("F", "FAIL", "FAILED", "ERROR"),
+            "DELIVERING": ("P", "DELIVERING", "PENDING"),
+        }
+        if normalized_status:
+            values = status_groups.get(normalized_status, (normalized_status,))
+            placeholders = []
+            for index, value in enumerate(values):
+                key = f"status_{index}"
+                placeholders.append(f":{key}")
+                params[key] = value
+            clauses.append(f"upper(msgstatus) in ({', '.join(placeholders)})")
+        normalized_keyword = (keyword or "").strip().upper()
+        if normalized_keyword:
+            clauses.append(
+                "upper(nvl(from_service_name, '') || ' ' || "
+                "nvl(to_service_name, '')) like :keyword"
+            )
+            params["keyword"] = f"%{normalized_keyword}%"
+        sql = f"""
             select
                 msgid,
                 msgstatus,
@@ -189,17 +284,13 @@ class RtimsRepository:
                 error_category,
                 bytes_length
             from mon_buf_aae_msg
-            where upper(server_id) = upper(:sid)
-              and sent_recv_time >= systimestamp - numtodsinterval(:hours, 'HOUR')
+            where {" and ".join(clauses)}
             order by sent_recv_time desc
             offset :offset rows fetch next :limit rows only
         """
         with connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    sql,
-                    {"sid": sid, "hours": hours, "offset": offset, "limit": limit},
-                )
+                cursor.execute(sql, params)
                 rows = _rows(cursor)
         return [
             {
@@ -406,6 +497,61 @@ class RtimsRepository:
                 cursor.execute(status_sql, {"sid": sid})
                 status_rows = _rows(cursor)
         return {"adapter_engine": ae_rows, "integration_engine": status_rows}
+
+    def system_statistics(self, sid: str, hours: int = 24) -> list[dict]:
+        sql = """
+            select
+                g.intf_group_id as group_id,
+                g.intf_group_nm as system_name,
+                sum(case when s.msg_status = 'S' then s.count else 0 end) as success_count,
+                sum(case when s.msg_status = 'F' then s.count else 0 end) as fail_count,
+                sum(case when s.msg_status = 'P' then s.count else 0 end) as pending_count,
+                0 as closed_count,
+                sum(s.count) as total_count
+            from mon_daily_statistics s
+            join mon_intf_map m on m.intf_map_id = s.intf_map_id
+            left join pm_interface i on i.intf_id = m.intf_id
+            left join pm_intf_group g on g.intf_group_id = i.intf_group_id
+            where upper(m.server_id) = upper(:sid)
+              and to_date(s.ymdd || lpad(s.hour, 2, '0'), 'YYYYMMDDHH24')
+                  >= sysdate - (:hours / 24)
+            group by g.intf_group_id, g.intf_group_nm
+            order by total_count desc
+        """
+        with connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, {"sid": sid, "hours": hours})
+                rows = _rows(cursor)
+        for row in rows:
+            total = int(row.get("total_count") or 0)
+            success = int(row.get("success_count") or 0)
+            fail = int(row.get("fail_count") or 0)
+            row.update(
+                success_count=success,
+                fail_count=fail,
+                pending_count=int(row.get("pending_count") or 0),
+                closed_count=int(row.get("closed_count") or 0),
+                total_count=total,
+                success_rate=round(success / total * 100, 2) if total else 0.0,
+                fail_rate=round(fail / total * 100, 2) if total else 0.0,
+            )
+        return rows
+
+    def system_queue_status(self, sid: str) -> list[dict]:
+        sql = """
+            select server_id, client_id,
+                   sum(case when severity = 'N' then msg_count else 0 end) as normal,
+                   sum(case when severity = 'W' then msg_count else 0 end) as warning,
+                   sum(case when severity = 'F' then msg_count else 0 end) as fail
+            from mon_q_status
+            where upper(server_id) = upper(:sid)
+            group by server_id, client_id
+            order by fail desc, warning desc, client_id
+        """
+        with connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, {"sid": sid})
+                return _rows(cursor)
 
     def topology(self, sid: str) -> list[dict]:
         sql = """

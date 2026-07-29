@@ -1,2 +1,2 @@
 # LLM Search MANUAL
-1차 버전은 placeholder다. 실제 연결 시 source, 불확실성, 안전 문구를 함께 표시하고 원문 payload를 전송하지 않는다.
+프론트는 `/llm-search/analyze`에 JSON을 보내고 provider 주소는 알지 못한다. 실제 provider 호출과 context allowlist는 backend 책임이다. 연결 실패 시 실행 결과로 오인하지 않는 안내를 표시하고 원문 payload를 전송하지 않는다.

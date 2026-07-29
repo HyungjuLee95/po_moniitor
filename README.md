@@ -9,7 +9,7 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 3. `SKILL.md` — AI 작업 순서와 완료 조건
 4. `ERROR.md` — 프로젝트 공통 오류 이력
 5. 작업 대상의 `<area>/README.md`
-6. 작업 대상의 `<area>/src/domains/<domain>/{README,MANUAL,SKILL,ERROR}.md`
+6. 작업 대상의 `<area>/src/domains/<domain>/{README,MANUAL,SKILL,ERROR,API}.md`
 
 ## 영역 지도
 
@@ -30,8 +30,8 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 | auth | O | O | 로그인, 세션, 역할 |
 | configuration | - | O | `.env`와 서버 registry |
 | server | O | configuration 사용 | 서버 선택과 표시 |
-| dashboard | O | O | 사용자별 위젯 구성 |
-| monitoring | O | O | 통합 상태와 지표 |
+| dashboard | O | O | 사용자별 위젯 구성·즐겨찾기·사용 빈도 메뉴 |
+| monitoring | O | O | 실시간 인터페이스·실제 24시간 트래픽·시스템 처리·Queue |
 | channels | O | O | 채널 상태와 제어 |
 | messages | O | O | 메시지 조회·추적 |
 | interfaces | O | O | 인터페이스 기준정보 |
@@ -41,6 +41,9 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 | alerts | O | O | 실시간 알림·확인 처리 |
 | llm_search | O | O | 오류 원인 검색 계약 |
 | settings | O | configuration/auth/collectors 사용 | 연결·기준·사용자·수집 관리 |
+| hrd | O | O | HRD 인터페이스·Excel·테스트 메시지·7일 Delivering 일일 점검 |
+| oracle_ifs | O | O | Oracle IFS 동기화·cache·이관 예정일 |
+| posts | O | O | 운영 지식 게시글 |
 
 ## 실행
 
@@ -111,6 +114,8 @@ SAP_VERIFY_TLS=false
 
 기존 RTIMS Oracle을 사용할 때는 `.env`의 `RTIMS_ENABLED=true`와 `RTIMS_ORACLE_*` 값을 설정한다. 이 경우 대시보드 통계·최근 메시지·장애는 RTIMS에서 조회하고, 채널 실시간 상태·제어·audit은 SAP PO API를 호출한다. PostgreSQL은 사용자·권한·대시보드 개인 설정용으로 별도 유지한다.
 
+내부 LLM JSON API를 연결할 때는 `.env`의 `LLM_API_URL`에 분석 endpoint 주소를 설정하고 백엔드를 재시작한다. 브라우저는 해당 주소를 직접 호출하지 않으며 `/api/v1/llm-search/analyze`가 중계한다.
+
 ### 6. PostgreSQL migration
 
 ```powershell
@@ -129,6 +134,10 @@ SAP_VERIFY_TLS=false
 & "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
   -h localhost -p 5432 -U postgres -d po_monitor `
   -f backend\migrations\004_monitoring_policy_and_iam.sql
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\005_required_feature_domains.sql
 ```
 
 ## 서버 추가
@@ -146,7 +155,7 @@ GET /api/v1/configuration/rtims-check
 
 ## 변경 완료 조건
 
-- 구현과 같은 커밋에서 관련 `README/MANUAL/SKILL/ERROR`를 갱신한다.
+- 구현과 같은 커밋에서 관련 `README/MANUAL/SKILL/ERROR/API`를 갱신한다.
 - `frontend`: `npm run lint`, `npm test`
 - `backend`: Python 3.11.7에서 `pytest`
 - 새 환경 변수는 `.env.example`에 추가한다.

@@ -20,7 +20,7 @@ export function LlmSearchPanel({ alert, onClose }: { alert: AlertItem; onClose: 
       });
       setAnswer(payload.data.answer);
     } catch {
-      setAnswer("LLM 연결 전 준비 화면입니다. 실제 연동 시 장애 문맥, 운영 매뉴얼, 과거 ERROR.md 기록을 함께 검색해 원인과 확인 순서를 제안합니다.");
+      setAnswer("LLM JSON API 호출에 실패했습니다. 백엔드의 LLM_API_URL 설정과 대상 API 상태를 확인해 주세요.");
     } finally {
       setPending(false);
     }
@@ -47,7 +47,7 @@ export function LlmSearchPanel({ alert, onClose }: { alert: AlertItem; onClose: 
         </form>
         <div className={`llm-answer ${answer ? "ready" : ""}`}>
           <p className="kicker">RESPONSE PREVIEW</p>
-          <p>{answer || "분석 결과가 이 영역에 표시됩니다. 1차 버전은 연동 계약과 화면 형태만 제공합니다."}</p>
+          <p>{answer || "LLM JSON API의 분석 결과가 이 영역에 표시됩니다."}</p>
         </div>
       </section>
     </div>

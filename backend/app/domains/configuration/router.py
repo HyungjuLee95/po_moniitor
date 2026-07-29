@@ -96,7 +96,7 @@ def sap_po_check(
     __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().get(sid)
-    service_names = ["systatus", "channels", "business_system"]
+    service_names = ["systatus", "channels", "business_system", "interface_monitor"]
     if "channel-control" in server.capabilities:
         service_names.append("channel_admin")
     if "audit" in server.capabilities:

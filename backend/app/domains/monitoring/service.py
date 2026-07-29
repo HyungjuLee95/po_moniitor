@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date, timedelta
 
 from app.core.config import settings
 from app.domains.channels.service import ChannelService
@@ -29,6 +30,8 @@ class MonitoringService:
                     "stopped": stopped,
                 },
                 "messages_today": 12_000 + seed % 8_000,
+                "failed_messages": 17 + seed % 21,
+                "pending_messages": 8 + seed % 13,
                 "success_rate": round(99.1 + (seed % 80) / 100, 2),
                 "average_latency_ms": 80 + seed % 120,
                 "latency_window_minutes": policy["response_window_minutes"],
@@ -55,6 +58,8 @@ class MonitoringService:
                     "stopped": stopped,
                 },
                 "messages_today": message_summary["total"],
+                "failed_messages": message_summary["fail"],
+                "pending_messages": message_summary["pending"],
                 "success_rate": message_summary["success_rate"],
                 "average_latency_ms": message_summary["average_latency_ms"],
                 "latency_window_minutes": policy["response_window_minutes"],
@@ -90,6 +95,14 @@ class MonitoringService:
                 "stopped": stopped,
             },
             "messages_today": len(messages),
+            "failed_messages": sum(
+                1 for row in messages
+                if str(row.get("status", "")).upper() in {"F", "FAIL", "FAILED", "ERROR"}
+            ),
+            "pending_messages": sum(
+                1 for row in messages
+                if str(row.get("status", "")).upper() in {"P", "PENDING", "DELIVERING"}
+            ),
             "success_rate": (
                 round(successful_messages / len(messages) * 100, 2)
                 if messages else 0.0
@@ -101,6 +114,54 @@ class MonitoringService:
             "latency_window_minutes": policy["response_window_minutes"],
             "source": "sap-po",
         }
+
+    def throughput(
+        self,
+        sid: str,
+        granularity: str = "hour",
+        days: int = 1,
+    ) -> list[dict]:
+        server = ServerRegistry().require_capability(sid, "monitor")
+        if settings.rtims_configured:
+            return RtimsRepository().message_throughput(
+                server.sid,
+                granularity,
+                days,
+            )
+        seed = int(hashlib.sha256(server.sid.encode()).hexdigest()[:6], 16)
+        if granularity == "day":
+            today = date.today()
+            return [
+                {
+                    "bucket": current.strftime("%Y%m%d"),
+                    "label": current.strftime("%m-%d"),
+                    "hour": None,
+                    "total_count": 185_000 + ((seed + index * 13_739) % 90_000),
+                    "success_count": 181_000 + ((seed + index * 13_703) % 87_000),
+                    "fail_count": 80 + ((seed + index * 17) % 260),
+                    "pending_count": 30 + ((seed + index * 11) % 140),
+                    "total_size_bytes": (
+                        185_000 + ((seed + index * 13_739) % 90_000)
+                    ) * (2_100 + ((seed + index * 37) % 3_900)),
+                }
+                for index in range(days)
+                for current in [today - timedelta(days=days - index - 1)]
+            ]
+        return [
+            {
+                "bucket": f"{date.today():%Y%m%d}{hour:02d}",
+                "label": f"{hour:02d}:00",
+                "hour": hour,
+                "total_count": 8_000 + ((seed + hour * 1739) % 14_000),
+                "success_count": 7_850 + ((seed + hour * 1703) % 13_700),
+                "fail_count": 8 + ((seed + hour * 7) % 35),
+                "pending_count": 4 + ((seed + hour * 5) % 22),
+                "total_size_bytes": (
+                    8_000 + ((seed + hour * 1739) % 14_000)
+                ) * (2_100 + ((seed + hour * 37) % 3_900)),
+            }
+            for hour in range(24)
+        ]
 
     def slow_messages(self, sid: str) -> dict:
         server = ServerRegistry().require_capability(sid, "monitor")
@@ -213,3 +274,35 @@ class MonitoringService:
                 {"client_id": "100", "direction": "I", "normal": 24, "warning": 2, "fail": 0}
             ],
         }
+
+    def system_statistics(self, sid: str, hours: int) -> list[dict]:
+        server = ServerRegistry().require_capability(sid, "monitor")
+        if settings.rtims_configured:
+            return RtimsRepository().system_statistics(server.sid, hours)
+        return [
+            {
+                "group_id": 1,
+                "system_name": "ERP Integration",
+                "success_count": 8120,
+                "fail_count": 14,
+                "pending_count": 31,
+                "closed_count": 0,
+                "total_count": 8165,
+                "success_rate": 99.45,
+                "fail_rate": 0.17,
+            }
+        ]
+
+    def system_queue_status(self, sid: str) -> list[dict]:
+        server = ServerRegistry().require_capability(sid, "monitor")
+        if settings.rtims_configured:
+            return RtimsRepository().system_queue_status(server.sid)
+        return [
+            {
+                "server_id": server.sid,
+                "client_id": "100",
+                "normal": 24,
+                "warning": 2,
+                "fail": 0,
+            }
+        ]

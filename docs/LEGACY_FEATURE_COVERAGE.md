@@ -17,10 +17,13 @@
 | 로그인·JWT·역할 권한 | 완료 | `auth` |
 | `.env` 서버 등록 및 프론트 서버 선택 자동 반영 | 완료 | `configuration`, `server` |
 | 사용자별 대시보드 배치·숨김·밀도 설정 | 완료 | `dashboard` |
+| 사용자별 즐겨찾기·자주 사용하는 메뉴 | 완료 | dashboard preference의 favorite/recent/usage |
+| 실제 24시간 메시지 트래픽 | 완료 | RTIMS 시간 bucket API와 대시보드 그래프 |
+| 실시간 인터페이스 내역 | 완료 | 15초 자동 갱신·상태·키워드 필터 |
 | 서버별 채널 실시간 상태 | 완료 | `channels` 전용 화면과 `GET /channels` |
 | SAP 등록 시스템 목록 | 완료 | 시스템 선택→포함 채널 drill-down UI |
 | 시스템에 포함된 채널 조회 | 완료 | `GET /channels/inventory?sid=&component_id=` |
-| 채널 상세·Directory 비밀번호 복호화 | 부분 | API와 일반 상세 UI 완료. 비밀번호는 ADMIN API로만 제공하며 UI 노출은 보안상 제외 |
+| 채널 상세·Directory 비밀번호 복호화 | 완료 | ADMIN API와 보안 Excel 추출에서만 사용 |
 | 채널 시작·중지 | 완료 | 다중 선택 제어와 결과 재조회 |
 | 채널 상태 확인·운영 모드 액션 | 완료 | `CHECK`, `AUTOMATIC`, `MANUAL`, `EXTERNAL` |
 | Message ID Audit 조회 | 완료 | 전용 검색·타임라인 UI |
@@ -29,7 +32,14 @@
 | RTIMS 대시보드·인시던트 | 완료 | 집계·목록·권한 기반 해결 UI |
 | RTIMS 성능·리소스·Queue | 완료 | 성능 및 리소스 화면. 내부 DB에서 단위·코드 smoke test 필요 |
 | 시스템 topology | 완료 | 송신→수신 그룹과 검색 UI |
-| Collector 상태·수동 실행 | 부분 | PostgreSQL checkpoint와 프로세스 내부 잠금 완료. 다중 인스턴스 분산 잠금·스케줄러는 후속 |
+| HRD 인터페이스·Excel·테스트 메시지 | 완료 | CommunicationChannelIn, 선택적 HANA, HttpAdapter |
+| HRD 현행·7일 Delivering 일일 점검 | 완료 | HRD 조회와 메시지 168시간 preset |
+| 채널 대량 Excel·미리보기·SSE 제어 | 완료 | ADMIN Excel, 마스킹 preview, 진행 이벤트 |
+| Namespace 인벤토리 | 완료 | SAP InterfaceMonitor 실제 operation 호출 |
+| 시스템 그룹 통계·대기 상세 | 완료 | RTIMS PM/통계/MON_Q_STATUS |
+| Oracle IFS 동기화 | 완료 | 별도 Oracle 설정, PostgreSQL cache, 수동·선택적 scheduler |
+| 게시글·비밀번호 찾기·직접 변경 | 완료 | 소유권 게시글, 관리자 승인형 reset token |
+| Collector 상태·수동 실행 | 부분 | PostgreSQL checkpoint와 프로세스 내부 잠금 완료. 시간창 분할·중복 제거·페이지 수집과 다중 인스턴스 분산 잠금은 후속 |
 | 장애 알림과 LLM 분석 형태 | 부분 | UI/API 계약은 있으나 실시간 RTIMS 알림과 실제 LLM은 미연결 |
 | 프로젝트 워크스페이스 CRUD·단계 진행 | 완료 | owner-scoped PostgreSQL CRUD와 단계 진행 UI |
 | 사용자·역할·서버 접근 관리 | 완료 | admin/관리자/일반 역할, PBKDF2 비밀번호, 서버별 백엔드 권한 검사 |
@@ -42,14 +52,14 @@
 
 | 영역 | 미구현 기능 |
 |---|---|
-| 채널 운영 | SSE 진행 스트림, 비밀정보 없는 Excel 대량 추출·변경 미리보기 |
-| 인터페이스 | Namespace 인벤토리, 시스템 그룹·모듈 현황 |
-| HRD | 사용자 요청으로 후속 단계에 의도적으로 보류 |
-| RTIMS | LONG_RUNNING 전용 이력과 시스템별 대기 상세 |
+| 채널 운영 | 실제 사내 SAP에서 Excel 필드명·SSE 대량 건수 smoke test |
+| 인터페이스 | InterfaceMonitor operation/응답 wrapper 사내 버전 smoke test |
+| HRD | HANA 스케줄 조인·HttpAdapter sender 매핑 사내 smoke test |
+| RTIMS | LONG_RUNNING 전용 이력 |
 | 수집기 | 분산 lock, 스케줄러, 필요 시 증분 결과 영속 저장 |
-| 관리 | 비밀번호 만료·로그인 잠금 정책, 게시글 |
-| 데이터 파이프라인 | Oracle IFS 동기화 화면과 실행 |
+| 관리 | 비밀번호 만료·로그인 잠금 정책 |
 | 모니터링 고도화 | 실제 RTIMS Alert Inbox와 LLM 연동 |
+| Legacy 연결 | 정상·오류를 판정할 데이터 원본과 상태 코드 확인 |
 
 ## 원본 분석 자료의 근거
 

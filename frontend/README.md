@@ -5,9 +5,9 @@ React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`
 | 도메인 | 책임 |
 |---|---|
 | auth | 로그인 화면과 세션 |
-| dashboard | 위젯 registry, 배치, 개인 설정 |
+| dashboard | 위젯 registry, 배치, 개인 설정, 자주 사용하는 메뉴 |
 | server | 서버 선택 표시 계약 |
-| monitoring | 운영 요약 시각화 |
+| monitoring | 실제 24시간 트래픽, 실시간 인터페이스, 시스템 처리·Queue 시각화 |
 | channels | 채널 상태·제어·채널별 통계 |
 | messages | 최근 메시지와 Message ID Audit |
 | interfaces | 시스템별 채널과 topology |
@@ -17,8 +17,11 @@ React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`
 | settings | 연결·모니터링 기준·사용자 권한·수집 상태 |
 | alerts | 상단 점멸 알림과 목록 |
 | llm_search | 장애 원인 검색 UI |
+| hrd | HRD 인터페이스·Excel·테스트 메시지·일일 점검 |
+| oracle_ifs | Oracle IFS 동기화와 이관 일정 |
+| posts | 운영 지식 게시글 |
 
-작업 전 `MANUAL.md`, `SKILL.md`, 대상 도메인의 네 문서를 읽는다.
+작업 전 `MANUAL.md`, `SKILL.md`, 대상 도메인의 다섯 문서를 읽는다. `API.md`는 화면이 사용하는 백엔드 계약의 소비자 문서다.
 
 ## 실행 명령
 

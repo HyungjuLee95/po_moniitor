@@ -37,6 +37,20 @@ class PasswordReset(BaseModel):
     temporary_password: str = Field(min_length=8, max_length=128)
 
 
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ForgotPassword(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+
+
+class TokenPasswordReset(BaseModel):
+    token: str = Field(min_length=20, max_length=256)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 def validate_role_and_servers(role: str, server_sids: list[str]) -> tuple[str, list[str]]:
     normalized_role = role.upper()
     if normalized_role not in {"ADMIN", "OPERATOR", "VIEWER"}:
@@ -76,6 +90,40 @@ def me(user: dict = Depends(current_user)) -> dict:
             else user["username"]
         ),
     }
+
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    payload: PasswordChange,
+    user: dict = Depends(current_user),
+) -> None:
+    try:
+        UserRepository().change_password(
+            user["username"],
+            payload.current_password,
+            payload.new_password,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/forgot-password", status_code=202)
+def forgot_password(payload: ForgotPassword) -> dict:
+    UserRepository().request_password_reset(payload.username.strip().lower())
+    return {
+        "data": {
+            "accepted": True,
+            "message": "계정이 존재하면 관리자 승인 목록에 등록됩니다.",
+        }
+    }
+
+
+@router.post("/reset-password", status_code=204)
+def reset_password_with_token(payload: TokenPasswordReset) -> None:
+    try:
+        UserRepository().consume_password_reset(payload.token, payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/users")
@@ -146,3 +194,29 @@ def reset_password(
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/password-reset-requests")
+def password_reset_requests(
+    _: dict = Depends(require_permissions("users:manage")),
+) -> dict:
+    rows = UserRepository().list_password_reset_requests()
+    return {"data": rows, "meta": {"count": len(rows)}}
+
+
+@router.post("/password-reset-requests/{request_id}/issue-token")
+def issue_password_reset_token(
+    request_id: int,
+    _: dict = Depends(require_permissions("users:manage")),
+) -> dict:
+    try:
+        token = UserRepository().issue_password_reset_token(request_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "data": {
+            "request_id": request_id,
+            "token": token,
+            "expires_in_minutes": 30,
+        }
+    }
