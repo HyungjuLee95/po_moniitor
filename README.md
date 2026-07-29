@@ -1,5 +1,7 @@
 # PO_MONITOR_MAIN
 
+로컬 `DEMO_MODE=true`의 초기 계정은 `admin / 1234` 하나만 제공한다. 운영 환경에서는 `DEMO_MODE=false`와 PostgreSQL 사용자 계정을 사용한다.
+
 SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내부 모니터링 프로젝트다. 코드는 `frontend`와 `backend`로 완전히 분리하며, AI와 개발자는 작업 전 해당 영역과 도메인의 문서를 순서대로 읽는다.
 
 ## 처음 읽는 순서

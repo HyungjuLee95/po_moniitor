@@ -14,35 +14,17 @@ from app.database import session_scope
 
 ROLE_CODES = {"ADMIN", "OPERATOR", "VIEWER"}
 _demo_users: dict[str, dict] = {
-    "admin": {
-        "username": "admin",
+    settings.demo_admin_username: {
+        "username": settings.demo_admin_username,
         "display_name": "System Admin",
         "role": "ADMIN",
         "active": True,
         "first_login": False,
         "server_sids": [],
     },
-    "operator": {
-        "username": "operator",
-        "display_name": "Operations Manager",
-        "role": "OPERATOR",
-        "active": True,
-        "first_login": True,
-        "server_sids": [],
-    },
-    "viewer": {
-        "username": "viewer",
-        "display_name": "General User",
-        "role": "VIEWER",
-        "active": True,
-        "first_login": True,
-        "server_sids": [],
-    },
 }
 _demo_passwords = {
-    "admin": settings.demo_admin_password,
-    "operator": "demo1234",
-    "viewer": "demo1234",
+    settings.demo_admin_username: settings.demo_admin_password,
 }
 _demo_reset_requests: list[dict] = []
 

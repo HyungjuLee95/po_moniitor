@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     llm_api_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
     demo_admin_username: str = "admin"
-    demo_admin_password: str = "demo1234"
+    demo_admin_password: str = "1234"
 
     @property
     def cors_origins(self) -> list[str]:

@@ -16,6 +16,19 @@ def test_password_hash_round_trip() -> None:
     assert "temporary-password" not in encoded
 
 
+def test_demo_mode_seeds_only_the_admin_account(monkeypatch) -> None:
+    monkeypatch.setattr("app.domains.auth.repository.settings.demo_mode", True)
+    repository = UserRepository()
+
+    assert repository.authenticate("admin", "1234") == {
+        "username": "admin",
+        "display_name": "System Admin",
+        "role": "ADMIN",
+    }
+    assert repository.authenticate("operator", "demo1234") is None
+    assert repository.authenticate("viewer", "demo1234") is None
+
+
 def test_demo_user_role_lifecycle(monkeypatch) -> None:
     monkeypatch.setattr("app.domains.auth.repository.settings.demo_mode", True)
     repository = UserRepository()

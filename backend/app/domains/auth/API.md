@@ -1,5 +1,7 @@
 # Auth API
 
+In demo mode, `POST /api/v1/auth/login` initially accepts only the configured `DEMO_ADMIN_USERNAME` and `DEMO_ADMIN_PASSWORD`. Additional demo users exist only after an admin creates them.
+
 | Method | Path | Permission |
 |---|---|---|
 | POST | `/api/v1/auth/login` | 공개 |
