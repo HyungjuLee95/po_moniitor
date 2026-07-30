@@ -2,7 +2,7 @@
 
 로컬 `DEMO_MODE=true`의 초기 계정은 `admin / 1234` 하나만 제공한다. 운영 환경에서는 `DEMO_MODE=false`와 PostgreSQL 사용자 계정을 사용한다.
 
-SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내부 모니터링 프로젝트다. 코드는 `frontend`와 `backend`로 완전히 분리하며, AI와 개발자는 작업 전 해당 영역과 도메인의 문서를 순서대로 읽는다.
+SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내부 모니터링 프로젝트다. 프론트는 공식 Next.js 16.2.12 App Router와 React 19.2.7, 백엔드는 Python 3.11.7과 FastAPI를 사용한다. 코드는 `frontend`와 `backend`로 완전히 분리하며, AI와 개발자는 작업 전 해당 영역과 도메인의 문서를 순서대로 읽는다.
 
 ## 처음 읽는 순서
 
@@ -85,6 +85,8 @@ python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 
 cd D:\toyproject\PO_MONITOR_MAIN\frontend
 npm run dev
 ```
+
+위 명령은 공식 Next.js 개발 서버를 실행한다. Vinext/Vite/Cloudflare Worker 호환 런타임은 사용하지 않는다.
 
 또는 프로젝트 루트에서:
 

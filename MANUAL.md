@@ -44,6 +44,7 @@
 ## 환경·서버 규칙
 
 - `.env`가 로컬 설정의 단일 원본이며 실제 값은 Git에 올리지 않는다.
+- 프론트는 공식 Next.js App Router와 `next` CLI를 사용하며 루트 `.env`를 `frontend/next.config.ts`에서 로드한다.
 - 프론트 공개값만 `NEXT_PUBLIC_` 접두사를 사용한다.
 - 서버 추가는 `PO_SERVERS_JSON`으로 처리한다.
 - SID는 2~8자 대문자·숫자, PostgreSQL 식별자는 소문자 snake_case를 사용한다.

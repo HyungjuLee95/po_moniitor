@@ -26,7 +26,7 @@ PO_MONITOR_MAIN/
 │  ├─ package.json
 │  ├─ package-lock.json
 │  ├─ tsconfig.json
-│  ├─ vite.config.ts
+│  ├─ next.config.ts
 │  └─ eslint.config.mjs
 ├─ docs/
 ├─ .env.example
@@ -43,9 +43,7 @@ dist/
 frontend/node_modules/
 frontend/build/
 frontend/dist/
-frontend/.wrangler/
-.vite/
-.wrangler/
+frontend/.next/
 .env
 __pycache__/
 backend/.pytest_cache/

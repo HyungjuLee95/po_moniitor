@@ -1,6 +1,8 @@
 # Frontend
 
-React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`은 애플리케이션 조립, `src/core`는 전역 계약, `src/domains`는 업무 기능을 담당한다.
+공식 Next.js 16.2.12 App Router와 React 19.2.7 기반 운영 콘솔이다. `app`은 렌더링 진입점, `src/app`은 애플리케이션 조립, `src/core`는 전역 계약, `src/domains`는 업무 기능을 담당한다.
+
+프론트 런타임은 Next.js 공식 CLI(`next dev`, `next build`, `next start`)를 사용한다. Vinext, Vite, Cloudflare Worker 호환 계층은 사용하지 않는다. 프로젝트 루트의 `.env`는 `next.config.ts`에서 읽으며, 브라우저에 공개해도 되는 값만 `NEXT_PUBLIC_` 접두사를 사용한다.
 
 | 도메인 | 책임 |
 |---|---|
@@ -39,3 +41,5 @@ npm test
 npm run build
 npm run start
 ```
+
+`npm test`는 공식 Next.js 운영 빌드를 만든 뒤 실제 Next 서버를 임시 포트로 실행하여 렌더링 결과를 검사한다.

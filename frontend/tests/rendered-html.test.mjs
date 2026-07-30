@@ -1,24 +1,38 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+import next from "next";
 
 async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+  const directory = fileURLToPath(new URL("..", import.meta.url));
+  const application = next({ dev: false, dir: directory });
+  await application.prepare();
+  const handler = application.getRequestHandler();
+  const server = createServer((request, response) => handler(request, response));
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
 
-  return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/`, {
+      headers: { accept: "text/html" },
+    });
+    return {
+      status: response.status,
+      contentType: response.headers.get("content-type") ?? "",
+      html: await response.text(),
+    };
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await application.close();
+  }
 }
 
 test("server-renders the PO Monitor login page", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
+  const { status, contentType, html } = await render();
+  assert.equal(status, 200);
+  assert.match(contentType, /^text\/html\b/i);
   assert.match(html, /<title>PO Monitor Main \| SAP PO Operations<\/title>/i);
   assert.match(html, /MONITOR MAIN/);
   assert.match(html, /CONNECTED OPERATIONS/);

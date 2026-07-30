@@ -1,7 +1,9 @@
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
+import path from "node:path";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+loadEnvConfig(path.resolve(process.cwd(), ".."));
+
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

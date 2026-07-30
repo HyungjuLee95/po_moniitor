@@ -1,5 +1,8 @@
 # Frontend MANUAL
 
+- 프론트 런타임은 공식 Next.js App Router와 Next CLI만 사용한다.
+- 프로젝트 공통 환경값은 루트 `.env`에서 관리하고 `next.config.ts`가 이를 로드한다.
+- Vinext, Vite, Cloudflare Worker용 설정이나 별도 프론트 `.env`를 추가하지 않는다.
 - 컴포넌트와 상태는 소유 도메인 안에 둔다.
 - 여러 도메인이 공유하는 API·세션·타입만 `src/core`에 둔다.
 - 페이지는 도메인을 조립하며 업무 로직을 직접 가지지 않는다.
