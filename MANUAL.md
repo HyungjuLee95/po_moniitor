@@ -7,13 +7,22 @@
 - 각 영역과 각 도메인은 `README.md`, `MANUAL.md`, `SKILL.md`, `ERROR.md`, `API.md`를 가진다.
 - 공통 코드는 `core`에 두되, 한 도메인에서만 쓰는 코드는 그 도메인 밖으로 이동하지 않는다.
 
+## 문서 읽기·갱신 파이프라인
+
+- 작업 시작은 `AGENTS.md -> PROJECT.md -> CURRENT_TASK.md` 순서를 사용한다.
+- 그 다음 작업 유형에 필요한 문서와 대상 도메인의 5개 문서만 읽는다.
+- 책임·계약·실행·오류·작업 절차는 각각의 기준 문서에만 상세히 적는다.
+- 작업 완료 후 코드에서 문서 방향으로 역갱신하고 `CURRENT_TASK.md`를 `IDLE`로 정리한다.
+- 상세 정책은 [`docs/documentation-policy.md`](docs/documentation-policy.md)를 따른다.
+
 ## 신규 도메인 생성
 
 1. frontend/backend 중 책임 영역을 결정한다.
 2. `<area>/src/domains/<domain>` 또는 `backend/app/domains/<domain>`을 만든다.
 3. 다섯 문서를 먼저 만들고 public API와 책임 경계를 적는다.
 4. 구현·테스트를 추가한다.
-5. 루트 및 영역 README의 도메인 지도에 등록한다.
+5. `PROJECT.md`, `SKILL.md`, 루트 및 영역 README의 도메인 지도에 등록한다.
+6. `python scripts\validate_project_docs.py`를 실행한다.
 
 ## 오류 기록 규칙
 
@@ -79,3 +88,12 @@ HRD는 필수 이식 범위다. HRD 도메인의 다섯 문서와 메뉴·API·�
 - `OPERATOR`는 화면 표시명을 `관리자`로 사용하고 조회·채널 운영 권한을 가진다.
 - `VIEWER`는 화면 표시명을 `일반`으로 사용하고 조회 전용 권한을 가진다.
 - 메뉴 숨김은 보조 UX이며 permission과 서버 접근 범위는 백엔드에서 다시 검사한다.
+
+## 프로젝트 품질 검사
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN
+python scripts\validate_project_docs.py
+```
+
+전체 테스트 전략과 완료 차단 조건은 [`docs/testing.md`](docs/testing.md)와 [`docs/quality-gates.md`](docs/quality-gates.md)를 따른다. 배포 절차는 [`docs/deployment.md`](docs/deployment.md), 중요한 설계 결정은 `docs/decisions/`에 기록한다.

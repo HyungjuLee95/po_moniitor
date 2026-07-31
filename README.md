@@ -6,12 +6,25 @@ SAP PO 서버·채널·메시지·장애·Collector를 통합 운영하는 내�
 
 ## 처음 읽는 순서
 
-1. `README.md` — 전체 지도와 실행 방법
-2. `MANUAL.md` — 생성·수정·오류 기록 규칙
-3. `SKILL.md` — AI 작업 순서와 완료 조건
-4. `ERROR.md` — 프로젝트 공통 오류 이력
-5. 작업 대상의 `<area>/README.md`
-6. 작업 대상의 `<area>/src/domains/<domain>/{README,MANUAL,SKILL,ERROR,API}.md`
+1. `AGENTS.md` — AI 작업·보안·검증 규칙
+2. `PROJECT.md` — 목표·제약·전체 도메인 지도
+3. `CURRENT_TASK.md` — 현재 작업의 읽기·변경·검증 범위
+4. 작업 유형에 필요한 `MANUAL.md`, `ERROR.md`, `docs/*`
+5. 대상 영역의 `README.md`, `MANUAL.md`, `SKILL.md`, `ERROR.md`
+6. 대상 도메인의 `README.md`, `MANUAL.md`, `SKILL.md`, `ERROR.md`, `API.md`
+
+## 주요 문서
+
+| 문서 | 용도 |
+|---|---|
+| [`PROJECT.md`](PROJECT.md) | 프로젝트 목표, 공통 제약, 전체 영역·도메인 지도 |
+| [`CURRENT_TASK.md`](CURRENT_TASK.md) | 현재 작업 범위와 완료 조건, AI 읽기 범위 |
+| [`ROADMAP.md`](ROADMAP.md) | 사내 검증과 후속 구현 우선순위 |
+| [`MANUAL.md`](MANUAL.md) | 프로젝트 생성·실행·오류·API 문서 규칙 |
+| [`SKILL.md`](SKILL.md) | AI 작업 순서와 도메인 색인 |
+| [`ERROR.md`](ERROR.md) | 공통 오류와 재발 방지 지식 |
+| [`CHANGELOG.md`](CHANGELOG.md) | 사용자·운영·개발 절차 영향 변경 |
+| [`docs/`](docs/) | 요구사항, 아키텍처, 테스트, 품질, 배포, ADR |
 
 ## 영역 지도
 
@@ -160,6 +173,7 @@ GET /api/v1/configuration/rtims-check
 ## 변경 완료 조건
 
 - 구현과 같은 커밋에서 관련 `README/MANUAL/SKILL/ERROR/API`를 갱신한다.
+- `python scripts\validate_project_docs.py`
 - `frontend`: `npm run lint`, `npm test`
 - `backend`: Python 3.11.7에서 `pytest`
 - 새 환경 변수는 `.env.example`에 추가한다.

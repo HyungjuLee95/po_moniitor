@@ -8,6 +8,14 @@
 
 ```text
 PO_MONITOR_MAIN/
+├─ AGENTS.md
+├─ PROJECT.md
+├─ CURRENT_TASK.md
+├─ ROADMAP.md
+├─ CHANGELOG.md
+├─ MANUAL.md
+├─ SKILL.md
+├─ ERROR.md
 ├─ backend/
 │  ├─ app/
 │  ├─ tests/
@@ -29,6 +37,8 @@ PO_MONITOR_MAIN/
 │  ├─ next.config.ts
 │  └─ eslint.config.mjs
 ├─ docs/
+├─ scripts/validate_project_docs.py
+├─ .github/workflows/docs-quality.yml
 ├─ .env.example
 ├─ start-backend.bat
 └─ start-frontend.bat
