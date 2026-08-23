@@ -6,12 +6,14 @@
 | GET | `/api/v1/monitoring/throughput?sid=&granularity=hour&days=1` | `monitoring:read` + SID 접근 권한 | RTIMS MON_MSG_LOG |
 | GET | `/api/v1/monitoring/performance` | `monitoring:read` | RTIMS |
 | GET | `/api/v1/monitoring/slow-messages` | `monitoring:read` | RTIMS MON_MSG_LOG |
-| GET | `/api/v1/monitoring/resources` | `monitoring:read` | RTIMS MON_RES_USAGE |
+| GET | `/api/v1/monitoring/resources?sid=&resource_type=ALL&hours=1` | `monitoring:read` | RTIMS MON_RES_USAGE/MON_RESOURCE |
 | GET | `/api/v1/monitoring/queues` | `monitoring:read` | RTIMS Queue |
 | GET | `/api/v1/monitoring/system-statistics` | `monitoring:read` | RTIMS 통계·PM 그룹 |
 | GET | `/api/v1/monitoring/system-queue-status` | `monitoring:read` | RTIMS MON_Q_STATUS |
 
 `summary`는 `messages_today`, `success_rate`, `failed_messages`, `pending_messages`, `average_latency_ms`, `latency_window_minutes`를 반환한다.
+
+`resources`의 `resource_type`은 `ALL/CPU/MEMORY`, `hours`는 1~24다. 각 row는 기존 화면용 `recent_usage/max_usage/max_limit`과 그래프용 `timeseries[{minute_day,usage_percent}]`, 임계치 기반 `status`를 함께 반환한다.
 
 `throughput` 계약:
 

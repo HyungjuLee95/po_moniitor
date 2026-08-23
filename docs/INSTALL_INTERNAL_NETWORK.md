@@ -24,6 +24,8 @@ PO_MONITOR_MAIN/
 │  ├─ migrations/003_workspaces.sql
 │  ├─ migrations/004_monitoring_policy_and_iam.sql
 │  ├─ migrations/005_required_feature_domains.sql
+│  ├─ migrations/006_rtims_compatibility.sql
+│  ├─ oracle/001_rtims_monitoring_schema.sql
 │  ├─ requirements.txt
 │  └─ requirements-dev.txt
 ├─ frontend/
@@ -38,8 +40,11 @@ PO_MONITOR_MAIN/
 │  └─ eslint.config.mjs
 ├─ docs/
 ├─ scripts/validate_project_docs.py
+├─ scripts/setup_rtims_databases.py
+├─ scripts/setup-rtims-databases.ps1
 ├─ .github/workflows/docs-quality.yml
 ├─ .env.example
+├─ setup-rtims-databases.bat
 ├─ start-backend.bat
 └─ start-frontend.bat
 ```
@@ -239,10 +244,12 @@ notepad .env
 
 `.env`에서 다음 범주를 설정한다.
 
-- PostgreSQL `DATABASE_URL`
+- application PostgreSQL `DATABASE_URL`
+- RTIMS 호환 schema를 별도 PostgreSQL에 둘 때 `RTIMS_POSTGRES_DATABASE_URL`
 - `PO_SERVERS_JSON`
 - SAP PO API 계정과 WSDL 경로
-- RTIMS Oracle 접속정보
+- RTIMS Oracle runtime 접속정보와 owner `RTIMS_ORACLE_SCHEMA`
+- 신규 Oracle schema 생성 시에만 사용하는 `RTIMS_ORACLE_DDL_USER/PASSWORD`
 - JWT secret
 - 허용된 CORS 주소
 
@@ -255,6 +262,28 @@ $psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\003_workspaces.sql
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\004_monitoring_policy_and_iam.sql
 & $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\005_required_feature_domains.sql
+& $psql -h localhost -p 5432 -U postgres -d po_monitor -f backend\migrations\006_rtims_compatibility.sql
+```
+
+RTIMS PostgreSQL 호환 schema와 신규 Oracle schema를 함께 준비하려면 위 migration 개별 실행 대신 다음 명령을 사용할 수 있다. 이 명령은 Python package의 `psycopg`, `oracledb`를 사용하므로 `psql` 또는 SQL*Plus 경로를 요구하지 않는다.
+
+```powershell
+cd D:\PO_MONITOR_MAIN
+.\scripts\setup-rtims-databases.ps1 -Target all
+```
+
+기존 Oracle RTIMS에 적용하기 전에는 생성 없이 객체·필수 컬럼만 검사한다.
+
+```powershell
+.\scripts\setup-rtims-databases.ps1 -Target oracle -CheckOnly
+```
+
+대상별 옵션은 `postgresql`, `oracle`, `all`이다. `setup-rtims-databases.bat`는 `all --apply`의 더블클릭 진입점이다. DDL에는 DROP·TRUNCATE·DELETE가 없고 이미 존재하는 객체는 유지한다. 단, 기존 테이블의 필수 컬럼이 빠진 경우 자동 변경하지 않고 실패하므로 DBA 확인이 필요하다. `MON_DAILY_CLOSE_STAT`은 제공 자료에 원본 DDL이 없어 현재 API가 사용하는 네 컬럼만 포함하며 Collector 전체 procedure와 scheduler는 별도 이식 대상이다.
+
+Oracle DDL owner와 backend runtime 사용자가 다르면 `RTIMS_ORACLE_SCHEMA`는 DDL owner와 같아야 한다. 원클릭 설치는 runtime 사용자에게 조회 권한과 `MON_ERR_HIST` 장애처리 컬럼의 UPDATE 권한만 부여한다. 사내 보안정책상 자동 grant가 금지되면 `-SkipRuntimeGrants`로 생성하고 DBA가 같은 최소 권한을 별도 승인·적용한다.
+
+```powershell
+.\scripts\setup-rtims-databases.ps1 -Target oracle -SkipRuntimeGrants
 ```
 
 ## 8. 실행과 확인

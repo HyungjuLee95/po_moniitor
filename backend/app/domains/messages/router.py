@@ -22,8 +22,9 @@ def list_messages(
     __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
-    rows = (
-        RtimsRepository().recent_messages(
+    if settings.rtims_configured:
+        repository = RtimsRepository()
+        rows = repository.recent_messages(
             server.sid,
             limit,
             offset=offset,
@@ -31,19 +32,26 @@ def list_messages(
             status=status,
             keyword=keyword,
         )
-        if settings.rtims_configured
-        else MessageService().list_recent(
+        total = repository.message_count(
+            server.sid,
+            hours=hours,
+            status=status,
+            keyword=keyword,
+        )
+    else:
+        rows = MessageService().list_recent(
             server,
             limit,
             hours=hours,
             status=status,
             keyword=keyword,
         )
-    )
+        total = len(rows)
     return {
         "data": rows,
         "meta": {
             "count": len(rows),
+            "total": total,
             "sid": server.sid,
             "hours": hours,
             "offset": offset,
@@ -54,6 +62,46 @@ def list_messages(
                 if settings.rtims_configured
                 else ("demo" if not settings.sap_po_live_mode else "sap-po-aae-monitor")
             ),
+        },
+    }
+
+
+@router.get("/count")
+def count_messages(
+    sid: str,
+    hours: int = Query(default=24, ge=1, le=168),
+    status: str | None = Query(default=None, max_length=32),
+    keyword: str | None = Query(default=None, max_length=128),
+    _: dict = Depends(require_permissions("messages:read")),
+    __: dict = Depends(require_server_access),
+) -> dict:
+    server = ServerRegistry().require_capability(sid, "monitor")
+    count = (
+        RtimsRepository().message_count(
+            server.sid,
+            hours=hours,
+            status=status,
+            keyword=keyword,
+        )
+        if settings.rtims_configured
+        else len(
+            MessageService().list_recent(
+                server,
+                1000,
+                hours=hours,
+                status=status,
+                keyword=keyword,
+            )
+        )
+    )
+    return {
+        "data": {"count": count},
+        "meta": {
+            "sid": server.sid,
+            "hours": hours,
+            "status": status,
+            "keyword": keyword,
+            "source": "rtims-oracle" if settings.rtims_configured else "sap-po",
         },
     }
 

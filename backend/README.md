@@ -55,3 +55,15 @@ GET /api/v1/posts
 | 사용자·권한·개인 대시보드 | PostgreSQL |
 
 RTIMS가 비활성화되면 최근 메시지와 대시보드는 AaeMessageMonitor SOAP을 사용한다.
+
+## RTIMS schema 준비
+
+`backend/migrations/006_rtims_compatibility.sql`은 PostgreSQL `rtims` 호환 schema, `backend/oracle/001_rtims_monitoring_schema.sql`은 Oracle live 계약용 DDL이다. 원클릭 실행기는 `.env`를 읽으며 접속정보를 인자나 로그로 출력하지 않는다.
+
+```powershell
+cd D:\toyproject\PO_MONITOR_MAIN
+.\scripts\setup-rtims-databases.ps1 -Target all
+.\scripts\setup-rtims-databases.ps1 -Target all -CheckOnly
+```
+
+Oracle DDL 계정은 runtime 조회·장애처리 계정과 분리한다. 이 DDL은 현재 backend가 요구하는 14개 객체에 한정되며 전체 RTIMS 제품 schema 복제본이 아니다.

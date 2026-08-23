@@ -7,9 +7,9 @@ from app.integrations.rtims.repository import RtimsRepository
 
 
 class ChannelMonitoringService:
-    def statistics(self, server: PoServer, channel_id: str) -> dict:
+    def statistics(self, server: PoServer, channel_id: str, hours: int = 24) -> dict:
         if settings.rtims_configured:
-            return RtimsRepository().channel_statistics(server.sid, channel_id)
+            return RtimsRepository().channel_statistics(server.sid, channel_id, hours)
         return {
             "total_count": 1842,
             "success_count": 1827,
@@ -26,10 +26,11 @@ class ChannelMonitoringService:
         channel_id: str,
         limit: int,
         offset: int,
+        hours: int = 24,
     ) -> list[dict]:
         if settings.rtims_configured:
             return RtimsRepository().channel_messages(
-                server.sid, channel_id, limit, offset
+                server.sid, channel_id, limit, offset, hours
             )
         now = datetime.now(timezone.utc)
         return [

@@ -85,8 +85,16 @@ def rtims_check(
 ) -> dict:
     if not settings.rtims_enabled:
         return {"data": {"enabled": False, "ready": False}}
-    RtimsRepository().check()
-    return {"data": {"enabled": True, "ready": True}}
+    repository = RtimsRepository()
+    repository.check()
+    objects = repository.check_contract()
+    return {
+        "data": {
+            "enabled": True,
+            "ready": all(item["ready"] for item in objects),
+            "objects": objects,
+        }
+    }
 
 
 @router.get("/sap-po-check")

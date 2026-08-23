@@ -28,3 +28,23 @@
 - 해결: 해당 백엔드 프로세스를 종료하고 검증된 Python 환경에서 단일 uvicorn 프로세스로 재시작
 - 검증: health `ok`, `/api/v1/monitoring/throughput`와 `/api/v1/messages` OpenAPI 노출 확인
 - 재발 방지: route 변경 후 health와 OpenAPI가 timeout이면 포트 존재만 신뢰하지 않고 프로세스를 정상 재시작
+
+## 2026-08-23 / Python 의존성 기준 파일 불일치
+
+- 증상: `requirements.txt`에는 Excel/HANA runtime 패키지가 있지만 `pyproject.toml`에는 없고, test optional의 `httpx`는 `requirements-dev.txt`에 없었다.
+- 영향: 설치 방식을 `pip -r`과 project metadata 중 무엇으로 선택하는지에 따라 서로 다른 Python 3.11.7 환경이 만들어질 수 있었다.
+- 원인: HRD Excel·HANA 기능 추가 후 두 의존성 기준 파일을 함께 갱신하지 않았다.
+- 해결: `openpyxl`, `hdbcli`, `httpx`의 버전 범위를 두 설치 방식에서 동일하게 맞췄다.
+- 검증: 별도 Python 3.11.7에 `requirements-dev.txt`를 설치해 `pip check` 무결성 통과, 전체 backend 45개 test 통과.
+- 재발 방지: Python 패키지 추가·변경 시 `requirements.txt`, `requirements-dev.txt`, `pyproject.toml`을 같은 변경에서 대조하고 contract test로 이름 집합을 검사한다.
+- 관련 파일: `backend/requirements.txt`, `backend/requirements-dev.txt`, `backend/pyproject.toml`, `backend/tests/test_python_contract.py`.
+
+## 2026-08-23 / pyproject 방식 backend 설치 실패
+
+- 증상: Python 3.11.7에서 `python -m pip install --dry-run '.\backend[test]'` 실행 시 multiple top-level packages 오류가 발생했고 metadata 생성 과정에서 `backend/*.egg-info`가 만들어졌다.
+- 영향: requirements 파일 설치와 직접 uvicorn 실행은 가능하지만 project metadata 기반 wheel·editable 설치는 불가능했고 생성물을 그대로 두면 커밋에 섞일 수 있었다.
+- 원인: setuptools 자동 탐색이 `app`뿐 아니라 DDL 폴더인 `oracle`, `migrations`까지 namespace package 후보로 판단했다.
+- 해결: build backend와 package discovery를 명시하고 `app*`만 포함하도록 제한했다. 생성된 metadata를 제거하고 `*.egg-info/`를 Git ignore에 추가했다.
+- 검증: Python 3.11.7에서 project test extra 설치 dry-run 통과, 전체 45개 test와 FastAPI 58개 OpenAPI path import smoke 통과.
+- 재발 방지: backend 최상위 폴더 추가 시 setuptools include/exclude와 project 설치 검증을 확인한다.
+- 관련 파일: `backend/pyproject.toml`, `.gitignore`.

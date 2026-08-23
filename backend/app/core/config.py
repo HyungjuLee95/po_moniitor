@@ -11,6 +11,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Capability = Literal["monitor", "channel-control", "audit", "collector", "hrd"]
 Environment = Literal["production", "quality", "development", "sandbox"]
+SapPoEndpointName = Literal[
+    "channels",
+    "channel_admin",
+    "adapter_monitor",
+    "aae_monitor",
+    "systatus",
+    "business_system",
+    "interface_monitor",
+    "directory",
+    "hrd_test",
+]
 
 
 class PoServer(BaseModel):
@@ -21,6 +32,7 @@ class PoServer(BaseModel):
     port: int = Field(default=50000, ge=1, le=65535)
     username: str | None = None
     password: SecretStr | None = None
+    endpoint_paths: dict[SapPoEndpointName, str] = Field(default_factory=dict)
     enabled: bool = True
     capabilities: list[Capability] = Field(default_factory=lambda: ["monitor"])
 
@@ -28,6 +40,17 @@ class PoServer(BaseModel):
     @classmethod
     def normalize_sid(cls, value: str) -> str:
         return value.upper()
+
+    @field_validator("endpoint_paths")
+    @classmethod
+    def validate_endpoint_paths(
+        cls,
+        value: dict[SapPoEndpointName, str],
+    ) -> dict[SapPoEndpointName, str]:
+        for name, path in value.items():
+            if not path.startswith("/"):
+                raise ValueError(f"{name} endpoint path must start with '/'")
+        return value
 
     def public_view(self) -> dict:
         return {
@@ -37,6 +60,9 @@ class PoServer(BaseModel):
             "enabled": self.enabled,
             "capabilities": self.capabilities,
         }
+
+    def endpoint_path(self, name: SapPoEndpointName, fallback: str) -> str:
+        return self.endpoint_paths.get(name, fallback)
 
     @property
     def origin(self) -> str:
@@ -71,11 +97,18 @@ class Settings(BaseSettings):
     database_connect_on_startup: bool = False
 
     rtims_enabled: bool = False
+    rtims_postgres_database_url: str = ""
     rtims_oracle_host: str = ""
     rtims_oracle_port: int = 1521
     rtims_oracle_service: str = ""
+    rtims_oracle_schema: str = Field(
+        default="",
+        pattern=r"^$|^[A-Za-z][A-Za-z0-9_$#]{0,127}$",
+    )
     rtims_oracle_user: str = ""
     rtims_oracle_password: SecretStr = SecretStr("")
+    rtims_oracle_ddl_user: str = ""
+    rtims_oracle_ddl_password: SecretStr = SecretStr("")
     rtims_pool_min: int = 1
     rtims_pool_max: int = 5
 
@@ -154,6 +187,19 @@ class Settings(BaseSettings):
             and self.rtims_oracle_service
             and self.rtims_oracle_user
             and self.rtims_oracle_password.get_secret_value()
+        )
+
+    @property
+    def rtims_postgres_setup_url(self) -> str:
+        return self.rtims_postgres_database_url.strip() or self.database_url
+
+    @property
+    def rtims_oracle_ddl_configured(self) -> bool:
+        return bool(
+            self.rtims_oracle_host
+            and self.rtims_oracle_service
+            and self.rtims_oracle_ddl_user
+            and self.rtims_oracle_ddl_password.get_secret_value()
         )
 
     @property

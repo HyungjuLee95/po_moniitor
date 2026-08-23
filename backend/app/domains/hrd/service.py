@@ -169,7 +169,10 @@ class HrdService:
         session = build_session(server)
         try:
             response = session.post(
-                endpoint(server, settings.sap_hrd_test_path),
+                endpoint(
+                    server,
+                    server.endpoint_path("hrd_test", settings.sap_hrd_test_path),
+                ),
                 params={
                     "interface": settings.sap_hrd_test_interface,
                     "senderService": sender_service,

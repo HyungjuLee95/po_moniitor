@@ -131,6 +131,22 @@ SAP_VERIFY_TLS=false
 
 기존 RTIMS Oracle을 사용할 때는 `.env`의 `RTIMS_ENABLED=true`와 `RTIMS_ORACLE_*` 값을 설정한다. 이 경우 대시보드 통계·최근 메시지·장애는 RTIMS에서 조회하고, 채널 실시간 상태·제어·audit은 SAP PO API를 호출한다. PostgreSQL은 사용자·권한·대시보드 개인 설정용으로 별도 유지한다.
 
+새 RTIMS schema가 필요한 환경은 runtime 계정과 별도로 `RTIMS_ORACLE_DDL_USER`, `RTIMS_ORACLE_DDL_PASSWORD`를 설정한 뒤 아래 원클릭 명령을 사용한다. 두 계정이 다르면 `RTIMS_ORACLE_SCHEMA`에 DDL owner 이름을 설정하며, 실행기가 runtime 계정에 14개 객체 SELECT와 장애처리 컬럼 UPDATE 권한을 부여한다. PostgreSQL은 `RTIMS_POSTGRES_DATABASE_URL`을 사용하며, 비어 있으면 기존 `DATABASE_URL`에 `rtims` schema를 만든다. Oracle은 `RTIMS_ORACLE_HOST/PORT/SERVICE`와 DDL 계정을 읽는다. 기존 객체나 데이터는 삭제하지 않으며 현재 backend가 사용하는 14개 객체와 필수 컬럼을 생성·검증한다.
+
+```powershell
+# PostgreSQL + Oracle 생성 후 계약 검증
+.\scripts\setup-rtims-databases.ps1 -Target all
+
+# 생성 없이 현재 상태만 검증
+.\scripts\setup-rtims-databases.ps1 -Target all -CheckOnly
+
+# 한 DB만 적용
+.\scripts\setup-rtims-databases.ps1 -Target postgresql
+.\scripts\setup-rtims-databases.ps1 -Target oracle
+```
+
+Windows에서 `setup-rtims-databases.bat`를 실행해 두 DB를 한 번에 적용할 수도 있다. Oracle 운영 schema가 이미 있다면 먼저 `-CheckOnly`를 실행한다. `MON_DAILY_CLOSE_STAT`은 원본 DDL이 제공되지 않아 현재 조회 컬럼만 반영한 최소 호환 계약이며, Collector 전체 procedure·job schema는 포함하지 않는다.
+
 내부 LLM JSON API를 연결할 때는 `.env`의 `LLM_API_URL`에 분석 endpoint 주소를 설정하고 백엔드를 재시작한다. 브라우저는 해당 주소를 직접 호출하지 않으며 `/api/v1/llm-search/analyze`가 중계한다.
 
 ### 6. PostgreSQL migration
@@ -155,6 +171,10 @@ SAP_VERIFY_TLS=false
 & "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
   -h localhost -p 5432 -U postgres -d po_monitor `
   -f backend\migrations\005_required_feature_domains.sql
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" `
+  -h localhost -p 5432 -U postgres -d po_monitor `
+  -f backend\migrations\006_rtims_compatibility.sql
 ```
 
 ## 서버 추가
@@ -162,6 +182,30 @@ SAP_VERIFY_TLS=false
 `.env`의 `PO_SERVERS_JSON` 배열에 서버를 추가하고 백엔드를 재시작한다. bootstrap API가 공개 가능한 서버 정보만 내려주므로 프론트 선택 목록은 코드 변경 없이 자동 갱신된다.
 
 실제 SAP 서버 주소와 계정은 `.env`에만 작성한다. `.env.example`에는 운영값을 커밋하지 않는다.
+
+서버별로 `base_url`, `port`, `username`, `password`를 독립적으로 설정할 수 있다. `username` 또는 `password`를 생략하거나 빈 값으로 두면 공통 `SAP_PO_USER`, `SAP_PO_PASSWORD`를 사용한다. 서버마다 WSDL 또는 HTTP 경로도 다르면 `endpoint_paths`에서 해당 경로만 덮어쓴다.
+
+```env
+SAP_PO_USER=공통-fallback-user
+SAP_PO_PASSWORD=공통-fallback-password
+PO_SERVERS_JSON=[{"sid":"POP","display_name":"PO Production","environment":"production","base_url":"https://pop-host.example","port":50000,"username":"pop-user","password":"pop-password","capabilities":["monitor","audit"]},{"sid":"PMP","display_name":"PO Production 2","environment":"production","base_url":"https://pmp-host.example","port":60000,"username":"pmp-user","password":"pmp-password","endpoint_paths":{"channels":"/custom/CommunicationChannel?wsdl","directory":"/custom/dir/read/ext"},"capabilities":["monitor","audit","hrd"]}]
+```
+
+`endpoint_paths`에서 사용할 수 있는 키는 다음과 같다.
+
+| 키 | 대상 |
+|---|---|
+| `channels` | CommunicationChannelIn WSDL |
+| `channel_admin` | ChannelAdmin WSDL |
+| `adapter_monitor` | AdapterMessageMonitoring WSDL |
+| `aae_monitor` | AaeMessageMonitor WSDL |
+| `systatus` | Systatus WSDL |
+| `business_system` | BusinessSystemIn WSDL |
+| `interface_monitor` | InterfaceMonitor WSDL |
+| `directory` | Directory HTTP 경로 |
+| `hrd_test` | HRD HttpMessageServlet 경로 |
+
+`base_url`, 계정, 비밀번호, `endpoint_paths`는 backend 내부에서만 사용하며 bootstrap과 프론트 응답에는 노출하지 않는다.
 
 연결 점검 API:
 

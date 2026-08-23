@@ -22,7 +22,10 @@ def read_channel_xml(
     session = build_session(server)
     try:
         response = session.get(
-            endpoint(server, settings.sap_directory_path),
+            endpoint(
+                server,
+                server.endpoint_path("directory", settings.sap_directory_path),
+            ),
             params={
                 "method": "PLAIN",
                 "TYPE": "Channel",

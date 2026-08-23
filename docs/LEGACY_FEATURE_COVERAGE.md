@@ -7,6 +7,7 @@
 
 - `완료`: 백엔드 계약과 실제 UI가 모두 연결됨
 - `백엔드 완료`: 실제 API는 있으나 전용 UI가 없음
+- `사내검증 필요`: 코드와 UI는 연결됐으나 실제 SAP PO/RTIMS 계약 smoke test가 남음
 - `부분`: 일부 조회 또는 요약만 구현됨
 - `미구현`: 원본 자료에는 있으나 새 프로젝트에는 아직 없음
 
@@ -18,8 +19,8 @@
 | `.env` 서버 등록 및 프론트 서버 선택 자동 반영 | 완료 | `configuration`, `server` |
 | 사용자별 대시보드 배치·숨김·밀도 설정 | 완료 | `dashboard` |
 | 사용자별 즐겨찾기·자주 사용하는 메뉴 | 완료 | dashboard preference의 favorite/recent/usage |
-| 실제 24시간 메시지 트래픽 | 완료 | RTIMS 시간 bucket API와 대시보드 그래프 |
-| 실시간 인터페이스 내역 | 완료 | 15초 자동 갱신·상태·키워드 필터 |
+| 실제 24시간 메시지 트래픽 | 사내검증 필요 | RTIMS 시간 bucket API와 대시보드 그래프. 상태·시간대 검증 필요 |
+| 실시간 인터페이스 내역 | 사내검증 필요 | `MON_MSG_LOG`/`MON_INTF_MAP`, 15초 갱신·필터. 실 DB smoke test 필요 |
 | 서버별 채널 실시간 상태 | 완료 | `channels` 전용 화면과 `GET /channels` |
 | SAP 등록 시스템 목록 | 완료 | 시스템 선택→포함 채널 drill-down UI |
 | 시스템에 포함된 채널 조회 | 완료 | `GET /channels/inventory?sid=&component_id=` |
@@ -27,16 +28,16 @@
 | 채널 시작·중지 | 완료 | 다중 선택 제어와 결과 재조회 |
 | 채널 상태 확인·운영 모드 액션 | 완료 | `CHECK`, `AUTOMATIC`, `MANUAL`, `EXTERNAL` |
 | Message ID Audit 조회 | 완료 | 전용 검색·타임라인 UI |
-| 최근 메시지 조회 | 완료 | RTIMS 또는 AAE API 목록 UI |
-| 채널별 RTIMS 통계·메시지 | 완료 | 선택 채널 상세 패널 |
-| RTIMS 대시보드·인시던트 | 완료 | 집계·목록·권한 기반 해결 UI |
-| RTIMS 성능·리소스·Queue | 완료 | 성능 및 리소스 화면. 내부 DB에서 단위·코드 smoke test 필요 |
+| 최근 메시지 조회 | 사내검증 필요 | RTIMS `MON_MSG_LOG` 또는 AAE 목록 UI. 상태코드 확인 필요 |
+| 채널별 RTIMS 통계·메시지 | 사내검증 필요 | `%채널명%`·시간창 조회 구현, 실 매핑 검증 필요 |
+| RTIMS 대시보드·인시던트 | 사내검증 필요 | `MON_ERR_HIST` 조회·해결 구현, 조인·권한 검증 필요 |
+| RTIMS 성능·리소스·Queue | 사내검증 필요 | 수집 사용률 시계열·Queue 구현, 단위·코드 smoke test 필요 |
 | 시스템 topology | 완료 | 송신→수신 그룹과 검색 UI |
 | HRD 인터페이스·Excel·테스트 메시지 | 완료 | CommunicationChannelIn, 선택적 HANA, HttpAdapter |
 | HRD 현행·7일 Delivering 일일 점검 | 완료 | HRD 조회와 메시지 168시간 preset |
 | 채널 대량 Excel·미리보기·SSE 제어 | 완료 | ADMIN Excel, 마스킹 preview, 진행 이벤트 |
 | Namespace 인벤토리 | 완료 | SAP InterfaceMonitor 실제 operation 호출 |
-| 시스템 그룹 통계·대기 상세 | 완료 | RTIMS PM/통계/MON_Q_STATUS |
+| 시스템 그룹 통계·대기 상세 | 사내검증 필요 | RTIMS PM/통계/MON_Q_STATUS. `MON_DAILY_CLOSE_STAT` DDL 확인 필요 |
 | Oracle IFS 동기화 | 완료 | 별도 Oracle 설정, PostgreSQL cache, 수동·선택적 scheduler |
 | 게시글·비밀번호 찾기·직접 변경 | 완료 | 소유권 게시글, 관리자 승인형 reset token |
 | Collector 상태·수동 실행 | 부분 | PostgreSQL checkpoint와 프로세스 내부 잠금 완료. 시간창 분할·중복 제거·페이지 수집과 다중 인스턴스 분산 잠금은 후속 |

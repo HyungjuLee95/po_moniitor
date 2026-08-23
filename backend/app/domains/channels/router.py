@@ -101,15 +101,17 @@ def channel_detail_with_secret(
 def channel_statistics(
     sid: str,
     channel_id: str = Query(min_length=1, max_length=256),
+    hours: int = Query(default=24, ge=1, le=168),
     _: dict = Depends(require_permissions("channels:read")),
     __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
     return {
-        "data": ChannelMonitoringService().statistics(server, channel_id),
+        "data": ChannelMonitoringService().statistics(server, channel_id, hours),
         "meta": {
             "sid": server.sid,
             "channel_id": channel_id,
+            "hours": hours,
             "source": "rtims-oracle" if settings.rtims_configured else "demo",
         },
     }
@@ -121,12 +123,13 @@ def channel_message_history(
     channel_id: str = Query(min_length=1, max_length=256),
     limit: int = Query(default=50, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
+    hours: int = Query(default=24, ge=1, le=168),
     _: dict = Depends(require_permissions("channels:read")),
     __: dict = Depends(require_server_access),
 ) -> dict:
     server = ServerRegistry().require_capability(sid, "monitor")
     rows = ChannelMonitoringService().messages(
-        server, channel_id, limit, offset
+        server, channel_id, limit, offset, hours
     )
     return {
         "data": rows,
@@ -136,6 +139,7 @@ def channel_message_history(
             "count": len(rows),
             "limit": limit,
             "offset": offset,
+            "hours": hours,
             "source": "rtims-oracle" if settings.rtims_configured else "demo",
         },
     }

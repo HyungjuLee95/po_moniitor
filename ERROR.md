@@ -106,6 +106,56 @@
 - 검증: Python 3.12 검증 환경에서 backend 25개 테스트 통과
 - 재발 방지: 검증 전에 실제 파일 목록과 `python --version`을 확인한다. 사내 이식 최종 검증은 요구 버전 Python 3.11.7에서 별도로 수행한다.
 
+## 2026-08-23 / 기본 Python에서 서버별 SAP·RTIMS·DDL 계약 테스트 실행 불가
+
+- 증상: `python -m pytest backend/tests/test_config.py backend/tests/test_rtims_contract.py backend/tests/test_rtims_schema_setup.py -q`가 `No module named pytest`로 종료됨
+- 영향: 서버별 origin·credential·endpoint override, RTIMS SQL/DTO와 두 DB DDL contract 단위 테스트를 현재 PC에서 실행하지 못함
+- 원인: 현재 기본 Python이 요구 버전 3.11.7이 아닌 3.13이며 pytest가 설치되어 있지 않음
+- 해결: 프로젝트 밖의 별도 Python 3.11.7 검증 경로에 `backend/requirements-dev.txt`를 설치하고 전체 backend test를 실행함
+- 검증: Python 3.11.7에서 compileall과 backend 45개 test 통과, 문서 검증과 `git diff --check` 통과
+- 재발 방지: 백엔드 검증 전에 `python --version`과 `python -m pytest --version`을 확인하고 요구 버전 환경에서 실행함
+- 관련 파일 또는 명령: `backend/tests/test_config.py`, `backend/tests/test_rtims_contract.py`, `backend/tests/test_rtims_schema_setup.py`, `python -m pytest backend/tests/test_config.py backend/tests/test_rtims_contract.py backend/tests/test_rtims_schema_setup.py -q`
+
+## 2026-08-23 / RTIMS 신규 schema의 운영 원본 완전 일치 검증 불가
+
+- 증상: PostgreSQL·Oracle용 DDL은 작성했지만 현재 외부 개발 PC에서 사내 Oracle schema와 Collector를 직접 실행해 비교할 수 없다.
+- 영향: 현재 backend가 요구하는 14개 객체·컬럼은 정적으로 검증할 수 있으나 Collector 전체 schema와 `MON_DAILY_CLOSE_STAT` 원본 계약은 보장할 수 없다.
+- 원인: 사내 DB 접속과 원본 schema export가 제공 범위 밖이고 역분석 자료에 일부 DDL이 누락되어 있다.
+- 해결: 생성 도구를 비파괴·멱등 구조로 만들고 기존 schema에는 `-CheckOnly`를 우선 사용하도록 문서화했다. 추가 확인 항목은 사내 LLM 프롬프트에 반영했다.
+- 검증: Python compileall, DDL 정적 contract test 설계, 문서 validator와 diff check를 수행한다. 실DB smoke test는 사내에서 남아 있다.
+- 재발 방지: 운영과 완전 호환이라고 표시하지 않고 원본 확인 결과는 새 migration·DDL로만 반영한다.
+- 관련 파일 또는 명령: `scripts/setup_rtims_databases.py`, `docs/internal-validation/RTIMS_SCHEMA_VALIDATION_PROMPT.md`.
+
+## 2026-08-23 / 로컬 RTIMS setup CLI 의존성 부재
+
+- 증상: 시스템 기본 Python으로 `python scripts/setup_rtims_databases.py --help`를 실행했을 때 `No module named pydantic_settings`로 종료됐다.
+- 영향: DDL 파일이나 compile에는 영향이 없지만 패키지 설치 전에는 setup CLI를 실행할 수 없다.
+- 원인: 현재 기본 Python 3.13.14에 `backend/requirements.txt`가 설치되지 않았고 요구 버전 Python 3.11.7 환경도 아니다.
+- 해결: argument parser를 backend import보다 먼저 실행하고, 실제 적용 시 의존성이 없으면 설치 명령만 안전하게 출력하도록 변경했다. 별도 Python 3.11.7에는 전체 backend 의존성을 설치했다.
+- 검증: 패키지 없는 시스템 Python과 의존성이 설치된 Python 3.11.7 모두에서 `--help` 정상 출력. DB 적용은 사내 환경에서 남아 있다.
+- 재발 방지: 사내 설치 순서를 backend requirements 설치 후 schema setup으로 고정한다.
+- 관련 파일 또는 명령: `scripts/setup_rtims_databases.py`, `python -m pip install -r backend\requirements.txt`.
+
+## 2026-08-23 / Python 3.11.7 검증용 설치 명령 실행 정책 차단
+
+- 증상: 다운로드·설치·확인을 `Start-Process`로 한 번에 묶은 명령은 실행 정책에 차단됐고, GUI installer를 직접 실행한 다음 `$LASTEXITCODE`를 즉시 확인한 명령은 비동기 실행 때문에 빈 exit code로 실패 처리됐다.
+- 영향: 프로젝트 파일에는 영향이 없었고 정확한 3.11.7 검증 준비만 지연됐다.
+- 원인: 설치 프로그램 실행과 완료 확인을 한 복합 명령에서 처리했다.
+- 해결: 공식 installer 다운로드, 조용한 설치, process 종료 대기, 버전 확인을 각각 분리했다.
+- 검증: 별도 경로의 `python.exe --version`이 `Python 3.11.7`을 반환하고 requirements 설치와 전체 test를 완료했다.
+- 재발 방지: Windows GUI installer 검증은 다운로드·실행·종료 대기·버전 확인을 독립 단계로 수행한다.
+- 관련 파일 또는 명령: 프로젝트 밖 검증 runtime이며 Git 포함 파일은 없음.
+
+## 2026-08-23 / OpenAPI smoke 한 줄 명령의 PowerShell 따옴표 오류
+
+- 증상: Python `-c` 안의 f-string과 JSON key 따옴표가 PowerShell 문자열 경계에서 잘려 `SyntaxError: unterminated string literal`이 발생했다.
+- 영향: application import 결과를 확인하지 못했으며 코드와 파일 변경에는 영향이 없었다.
+- 원인: 여러 검증을 한 명령에 묶으면서 중첩 따옴표를 과도하게 escape했다.
+- 해결: OpenAPI smoke를 독립 명령으로 분리하고 단순한 문자열 포맷을 사용한다.
+- 검증: Python 3.11.7에서 `app.main` import와 OpenAPI 58개 path 생성을 정상 확인했다.
+- 재발 방지: PowerShell의 Python `-c` 검증은 f-string 대신 단순 출력 또는 별도 테스트를 사용한다.
+- 관련 파일 또는 명령: 프로젝트 파일 변경 없음.
+
 ## 2026-07-28 / 실행 중 백엔드 health timeout
 
 - 증상: 8000 포트가 열려 있었지만 health·OpenAPI 요청이 응답하지 않음

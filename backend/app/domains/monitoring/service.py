@@ -226,10 +226,24 @@ class MonitoringService:
             },
         ]
 
-    def resources(self, sid: str) -> list[dict]:
+    def resources(
+        self,
+        sid: str,
+        resource_type: str = "ALL",
+        hours: int = 1,
+    ) -> list[dict]:
         server = ServerRegistry().require_capability(sid, "monitor")
         if settings.rtims_configured:
-            return RtimsRepository().resource_summary(server.sid)
+            resource_types = (
+                ("CPU", "MEMORY")
+                if resource_type == "ALL"
+                else (resource_type,)
+            )
+            return RtimsRepository().resource_summary(
+                server.sid,
+                resource_types,
+                hours,
+            )
         return [
             {
                 "server_id": server.sid,

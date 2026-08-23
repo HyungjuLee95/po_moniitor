@@ -28,11 +28,10 @@ ServiceName = Literal[
 
 def credentials(server: PoServer) -> tuple[str, str]:
     username = server.username or settings.sap_po_user
-    password = (
-        server.password.get_secret_value()
-        if server.password is not None
-        else settings.sap_po_password.get_secret_value()
+    server_password = (
+        server.password.get_secret_value() if server.password is not None else ""
     )
+    password = server_password or settings.sap_po_password.get_secret_value()
     if not username or not password:
         raise SapPoConfigurationError(
             f"SAP PO credentials are not configured for SID {server.sid}"
@@ -40,8 +39,8 @@ def credentials(server: PoServer) -> tuple[str, str]:
     return username, password
 
 
-def service_path(name: ServiceName) -> str:
-    return {
+def service_path(name: ServiceName, server: PoServer | None = None) -> str:
+    common_path = {
         "channels": settings.sap_channel_wsdl_path,
         "channel_admin": settings.sap_channel_admin_wsdl_path,
         "adapter_monitor": settings.sap_adapter_monitor_wsdl_path,
@@ -50,6 +49,7 @@ def service_path(name: ServiceName) -> str:
         "business_system": settings.sap_business_system_wsdl_path,
         "interface_monitor": settings.sap_interface_monitor_wsdl_path,
     }[name]
+    return server.endpoint_path(name, common_path) if server is not None else common_path
 
 
 def endpoint(server: PoServer, path: str) -> str:
@@ -90,7 +90,7 @@ def soap_client(sid: str, service_name: ServiceName):
     )
     try:
         return Client(
-            wsdl=endpoint(server, service_path(service_name)),
+            wsdl=endpoint(server, service_path(service_name, server)),
             transport=transport,
             settings=ZeepSettings(strict=False, xml_huge_tree=True),
         )

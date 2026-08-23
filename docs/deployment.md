@@ -18,6 +18,7 @@
 - [ ] Frontend lint·build·render test·운영 audit 통과
 - [ ] `.env` 비밀값과 허용 CORS·서버 registry 검토
 - [ ] 순번별 PostgreSQL migration과 백업 확인
+- [ ] RTIMS 신규 schema가 필요한 경우 DDL owner 승인과 `-CheckOnly` 결과 확인
 - [ ] SAP PO·RTIMS·선택 외부 시스템 연결 점검
 - [ ] rollback 대상 이전 버전과 DB 호환성 확인
 
@@ -25,7 +26,7 @@
 
 1. 승인된 Git commit 또는 사내 반입본을 준비한다.
 2. `.env.example`을 기준으로 운영 서버의 기존 `.env`를 검토한다.
-3. 새 migration만 번호 순서대로 적용한다.
+3. 새 migration만 번호 순서대로 적용한다. 신규 RTIMS schema는 `.\scripts\setup-rtims-databases.ps1 -Target <target>`로 적용하고 다시 `-CheckOnly`로 검증한다.
 4. Backend를 시작하고 `/health`와 OpenAPI route를 확인한다.
 5. Frontend production build를 만들고 `npm run start`로 시작한다.
 6. 역할별 핵심 조회와 허용된 운영 작업 한 건을 smoke test한다.
@@ -47,6 +48,6 @@
 
 1. 운영 영향과 중단 기준을 판단한다.
 2. 신규 프로세스를 중지하고 이전 정상 commit의 backend/frontend를 재배포한다.
-3. migration이 하위 호환인지 확인한다. 데이터 rollback이 필요하면 사전 백업과 별도 승인 절차를 사용한다.
+3. migration이 하위 호환인지 확인한다. RTIMS 생성 DDL은 데이터 삭제 rollback을 자동 수행하지 않으며, 신규 빈 schema 제거가 필요하면 DBA 승인 절차를 사용한다. 데이터 rollback이 필요하면 사전 백업과 별도 승인을 사용한다.
 4. health와 핵심 조회를 다시 확인한다.
 5. 영향·원인·복구 결과를 루트 또는 관련 도메인 `ERROR.md`와 `CHANGELOG.md`에 기록한다.

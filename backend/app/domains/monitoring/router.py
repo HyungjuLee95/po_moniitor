@@ -65,11 +65,21 @@ def slow_messages(
 @router.get("/resources")
 def resources(
     sid: str,
+    resource_type: Literal["ALL", "CPU", "MEMORY"] = Query(default="ALL"),
+    hours: int = Query(default=1, ge=1, le=24),
     _: dict = Depends(require_permissions("monitoring:read")),
     __: dict = Depends(require_server_access),
 ) -> dict:
-    rows = MonitoringService().resources(sid)
-    return {"data": rows, "meta": {"sid": sid.upper(), "count": len(rows)}}
+    rows = MonitoringService().resources(sid, resource_type, hours)
+    return {
+        "data": rows,
+        "meta": {
+            "sid": sid.upper(),
+            "resource_type": resource_type,
+            "hours": hours,
+            "count": len(rows),
+        },
+    }
 
 
 @router.get("/queues")

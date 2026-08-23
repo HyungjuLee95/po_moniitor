@@ -56,7 +56,10 @@
 - 프론트는 공식 Next.js App Router와 `next` CLI를 사용하며 루트 `.env`를 `frontend/next.config.ts`에서 로드한다.
 - 프론트 공개값만 `NEXT_PUBLIC_` 접두사를 사용한다.
 - 서버 추가는 `PO_SERVERS_JSON`으로 처리한다.
+- 각 서버는 독립적인 `base_url`, `port`, `username`, `password`, `endpoint_paths`를 가질 수 있으며 지정하지 않은 계정·경로만 공통 SAP 설정을 fallback으로 사용한다.
+- `endpoint_paths`에는 내부 host 전체가 아니라 `/`로 시작하는 WSDL·HTTP 경로만 기록하며 host와 port는 해당 서버의 `base_url`, `port`를 사용한다.
 - SID는 2~8자 대문자·숫자, PostgreSQL 식별자는 소문자 snake_case를 사용한다.
+- RTIMS 신규 schema는 `scripts/setup_rtims_databases.py`로만 생성·검증한다. Oracle runtime·DDL owner를 분리하고 PostgreSQL 별도 대상은 `RTIMS_POSTGRES_DATABASE_URL`로 지정한다. 정확한 권한과 제한은 `backend/app/integrations/rtims/MANUAL.md`를 따른다.
 
 ## 도메인 요약
 

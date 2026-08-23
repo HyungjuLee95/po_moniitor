@@ -151,6 +151,7 @@ def test_required_feature_routes_are_registered() -> None:
         "/api/v1/monitoring/system-statistics",
         "/api/v1/monitoring/system-queue-status",
         "/api/v1/monitoring/throughput",
+        "/api/v1/messages/count",
         "/api/v1/oracle-ifs/interfaces",
         "/api/v1/oracle-ifs/sync",
         "/api/v1/posts",
