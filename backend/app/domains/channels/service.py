@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from zeep import xsd
+
 from app.core.config import PoServer, settings
 from app.integrations.sap_po.client import call, soap_client
 from app.integrations.sap_po.directory import (
@@ -105,11 +107,14 @@ class ChannelService:
                 if component_id == "*" or row["component_id"] == component_id
             ]
         client = soap_client(server.sid, "channels")
+        query_component_id = (
+            xsd.SkipValue if component_id in {"", "*"} else component_id
+        )
         response = call(
             client.service.Query,
             CommunicationChannelID={
                 "PartyID": "",
-                "ComponentID": component_id,
+                "ComponentID": query_component_id,
                 "ChannelID": channel_pattern,
             },
             Description=None,

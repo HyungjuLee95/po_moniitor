@@ -114,6 +114,67 @@ class UserRepository:
             ).mappings().all()
         return [dict(row) for row in rows]
 
+    def register_user(
+        self,
+        username: str,
+        display_name: str,
+        password: str,
+    ) -> dict:
+        """Create a self-registered viewer that requires Administrator approval."""
+        if username == settings.demo_admin_username:
+            raise ValueError("username is unavailable")
+        if settings.demo_mode:
+            if username in _demo_users:
+                raise ValueError("username already exists")
+            row = {
+                "username": username,
+                "display_name": display_name,
+                "role": "VIEWER",
+                "active": False,
+                "first_login": False,
+                "server_sids": [],
+            }
+            _demo_users[username] = row
+            _demo_passwords[username] = password
+            return dict(row)
+
+        with session_scope() as session:
+            user_id = session.execute(
+                text(
+                    """
+                    insert into iam.app_user (
+                        username, display_name, password_hash, active, first_login
+                    ) values (
+                        :username, :display_name, :password_hash, false, false
+                    )
+                    on conflict (username) do nothing
+                    returning user_id
+                    """
+                ),
+                {
+                    "username": username,
+                    "display_name": display_name,
+                    "password_hash": hash_password(password),
+                },
+            ).scalar_one_or_none()
+            if user_id is None:
+                raise ValueError("username already exists")
+            session.execute(
+                text(
+                    "insert into iam.user_role (user_id, role_code) "
+                    "values (:user_id, 'VIEWER')"
+                ),
+                {"user_id": user_id},
+            )
+            self._audit(
+                session,
+                "self-registration",
+                username,
+                "REGISTER",
+                {"role": "VIEWER", "active": False},
+            )
+        return self.get_user(username)
+
     def create_user(
         self,
         username: str,
@@ -432,8 +493,11 @@ class UserRepository:
         raise LookupError("user not found")
 
     def allowed_sids(self, username: str, role: str) -> list[str] | None:
-        if role.upper() == "ADMIN" or settings.demo_mode:
+        if role.upper() == "ADMIN":
             return None
+        if settings.demo_mode:
+            row = _demo_users.get(username)
+            return list(row["server_sids"]) if row and row["active"] else []
         with session_scope() as session:
             rows = session.execute(
                 text(

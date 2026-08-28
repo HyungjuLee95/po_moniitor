@@ -106,7 +106,7 @@ export function SettingsPage({ sid, server, servers, user }: { sid: string; serv
         </section>
       )}
 
-      {tab === "users" && <UserManagementPanel servers={servers} currentUsername={user.username} />}
+      {tab === "users" && <UserManagementPanel servers={servers} />}
       {tab === "collector" && <CollectorsPage user={user} embedded />}
     </section>
   );

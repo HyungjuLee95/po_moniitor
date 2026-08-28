@@ -26,6 +26,12 @@ class UserCreate(BaseModel):
     server_sids: list[str] = Field(default_factory=list)
 
 
+class RegistrationRequest(BaseModel):
+    username: str
+    display_name: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class UserUpdate(BaseModel):
     display_name: str = Field(min_length=1, max_length=100)
     role: str
@@ -80,15 +86,38 @@ def login(username: str = Form(...), password: str = Form(...)) -> dict:
     }
 
 
+@router.post("/register", status_code=202)
+def register(payload: RegistrationRequest) -> dict:
+    username = payload.username.strip().lower()
+    display_name = payload.display_name.strip()
+    if not USERNAME_PATTERN.fullmatch(username):
+        raise HTTPException(status_code=422, detail="invalid username")
+    if not display_name:
+        raise HTTPException(status_code=422, detail="invalid display name")
+    try:
+        UserRepository().register_user(
+            username,
+            display_name,
+            payload.password,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "data": {
+            "accepted": True,
+            "status": "pending",
+            "role": "VIEWER",
+            "message": "Administrator approval is required before login.",
+        }
+    }
+
+
 @router.get("/me")
 def me(user: dict = Depends(current_user)) -> dict:
+    profile = UserRepository().get_user(user["username"])
     return {
         **user,
-        "display_name": (
-            "Demo Administrator"
-            if settings.demo_mode and user["username"] == settings.demo_admin_username
-            else user["username"]
-        ),
+        "display_name": profile["display_name"],
     }
 
 
@@ -142,6 +171,11 @@ def create_user(
     if not USERNAME_PATTERN.fullmatch(username):
         raise HTTPException(status_code=422, detail="invalid username")
     role, server_sids = validate_role_and_servers(payload.role, payload.server_sids)
+    if role == "ADMIN":
+        raise HTTPException(
+            status_code=409,
+            detail="additional administrator accounts are not allowed",
+        )
     try:
         row = UserRepository().create_user(
             username,
@@ -163,9 +197,20 @@ def update_user(
     actor: dict = Depends(require_permissions("users:manage")),
 ) -> dict:
     normalized = username.strip().lower()
+    role, server_sids = validate_role_and_servers(payload.role, payload.server_sids)
+    administrator = settings.demo_admin_username.strip().lower()
+    if normalized == administrator and (role != "ADMIN" or not payload.active):
+        raise HTTPException(
+            status_code=409,
+            detail="the Administrator account must remain active with the ADMIN role",
+        )
+    if normalized != administrator and role == "ADMIN":
+        raise HTTPException(
+            status_code=409,
+            detail="additional administrator accounts are not allowed",
+        )
     if normalized == actor["username"] and not payload.active:
         raise HTTPException(status_code=409, detail="cannot deactivate the current user")
-    role, server_sids = validate_role_and_servers(payload.role, payload.server_sids)
     try:
         row = UserRepository().update_user(
             normalized,

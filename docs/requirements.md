@@ -16,7 +16,7 @@ SAP PO와 RTIMS 운영 정보가 여러 화면·서버·데이터 원본에 분�
 
 | ID | 요구사항 | 우선순위 | 수용 기준 | 상태 |
 |---|---|---|---|---|
-| FR-001 | 로그인과 역할별 메뉴·서버 접근 | Must | ADMIN·OPERATOR·VIEWER 권한을 backend가 검사 | 구현 |
+| FR-001 | 로그인·가입 승인과 역할별 메뉴·서버 접근 | Must | 단일 Administrator 외 사용자는 비활성 VIEWER로 가입하고 승인 후 backend가 역할·서버 범위를 검사 | 구현 |
 | FR-002 | `.env` 서버 추가 자동 반영 | Must | backend 재시작 후 코드 변경 없이 서버 목록 노출 | 구현 |
 | FR-003 | 독립 로딩 대시보드와 15분 갱신 | Must | 기존 값을 유지하며 widget별 완료 시 데이터만 교체 | 구현 |
 | FR-004 | 24시간 트래픽과 1시간·1일 집계 | Must | 전체·서버별 필터와 메시지량·크기 tooltip 제공 | 구현 |
@@ -28,7 +28,8 @@ SAP PO와 RTIMS 운영 정보가 여러 화면·서버·데이터 원본에 분�
 | FR-010 | Oracle IFS 동기화 | Must | 수동 실행·마지막 결과·cache 상태 확인 | 구현, 사내 검증 필요 |
 | FR-011 | 사용자 대시보드·즐겨찾기·워크스페이스 | Should | 사용자별 설정과 소유권이 PostgreSQL에 유지 | 구현 |
 | FR-012 | 알림과 LLM 분석 | Should | 마스킹된 JSON 요청·응답 계약과 실패 상태 제공 | 부분 |
-| FR-013 | Collector 증분 수집 | Should | checkpoint·시간창·중복 제거·페이지 처리 | 부분 |
+| FR-013 | Collector 증분 수집 | Should | 서버별 HANA profile·bounded page·중복 처리·Oracle transaction checkpoint | 구현, 사내 HANA/Oracle 검증 필요 |
+| FR-014 | SAP PO 인증서 만료 조회 | Must | 서버별 키스토어 View·Alias·DN·D-day를 조회하고 만료일 서비스 부재를 부분 지원으로 표시 | 구현, 사내 권한 검증 필요 |
 
 ## 비기능 요구사항
 

@@ -158,5 +158,7 @@ def test_required_feature_routes_are_registered() -> None:
         "/api/v1/auth/forgot-password",
         "/api/v1/auth/reset-password",
         "/api/v1/auth/change-password",
+        "/api/v1/auth/register",
+        "/api/v1/certificates",
     }
     assert required.issubset(paths)

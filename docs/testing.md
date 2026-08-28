@@ -42,6 +42,14 @@ python --version
 python -m pytest backend\tests
 ```
 
+전체 Legacy RTIMS DDL이 적용된 일회용 loopback Oracle이 있을 때 Collector 실제 SQL smoke test를 추가로 실행한다. 이 테스트는 외부 host를 거부하며 로컬 비밀번호는 환경 변수로만 전달한다.
+
+```powershell
+$env:RTIMS_TEST_ORACLE_PASSWORD="<local-disposable-password>"
+py -3.11 scripts\smoke_test_rtims_collector_oracle.py
+Remove-Item Env:RTIMS_TEST_ORACLE_PASSWORD
+```
+
 최종 사내 이식 검증의 Python은 반드시 3.11.7이어야 한다. 다른 버전에서 실행한 결과는 보조 검증으로만 기록한다.
 
 ## 필수 사례

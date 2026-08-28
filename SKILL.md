@@ -26,6 +26,7 @@
 | alerts | 알림·확인 | [`README`](frontend/src/domains/alerts/README.md) | [`README`](backend/app/domains/alerts/README.md) |
 | auth | 로그인·세션·역할 | [`README`](frontend/src/domains/auth/README.md) | [`README`](backend/app/domains/auth/README.md) |
 | channels | 채널 조회·제어·대량 작업 | [`README`](frontend/src/domains/channels/README.md) | [`README`](backend/app/domains/channels/README.md) |
+| certificates | 키스토어 인증서·만료 상태 | [`README`](frontend/src/domains/certificates/README.md) | [`README`](backend/app/domains/certificates/README.md) |
 | collectors | checkpoint·증분 수집 | [`README`](frontend/src/domains/collectors/README.md) | [`README`](backend/app/domains/collectors/README.md) |
 | configuration | 서버 registry·연결 준비 상태 | [`server`](frontend/src/domains/server/README.md), [`settings`](frontend/src/domains/settings/README.md) | [`README`](backend/app/domains/configuration/README.md) |
 | dashboard | widget·즐겨찾기·요약 | [`README`](frontend/src/domains/dashboard/README.md) | [`README`](backend/app/domains/dashboard/README.md) |

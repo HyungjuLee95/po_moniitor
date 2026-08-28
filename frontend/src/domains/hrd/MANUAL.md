@@ -1,5 +1,7 @@
 # HRD MANUAL
 
+HRD는 특정 프로젝트 전용 기능이다. 선택 서버의 bootstrap capability에 `hrd`가 없으면 HRD 메뉴·일일 점검·대시보드 HRD 위젯을 숨기고 관련 API를 호출하지 않는다. 0건 응답만으로 권한 오류를 표시하지 않는다.
+
 ## Filter layout and selection
 
 - Place corporation codes and table names in one filter panel immediately below I/F ID search.

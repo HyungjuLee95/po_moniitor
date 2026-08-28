@@ -3,4 +3,6 @@
 
 Collector buffer(`MON_BUF_*`)와 운영 조회 원본(`MON_MSG_LOG`, 일별 통계, 오류 이력)을 혼동하지 않는다. 실제 schema 또는 상태 의미가 없으면 `docs/internal-validation/RTIMS_SCHEMA_VALIDATION_PROMPT.md`로 확인하고 결과 근거를 문서와 contract test에 반영한다.
 
+Collector 변경은 `HANA query -> AaeMessage contract -> Oracle buffer DML -> process_msg_logs -> checkpoint/log` 순서로 추적한다. write와 checkpoint의 transaction을 분리하거나 실제 DB에서 추정 테스트하지 않는다. 상태 API는 해당 write 경로와 동일한 Oracle runtime parameter·log를 읽는다.
+
 Schema 변경은 `contract.py -> Oracle/PostgreSQL DDL -> schema_setup.py -> test_rtims_schema_setup.py` 순서로 동기화한다. 이미 존재하는 Oracle 테이블을 추정 `ALTER`하거나 DROP하지 않는다. 원본 DDL이 확인되면 새 순번 DDL/migration으로 보정하고 `ERROR.md`에 차이를 기록한다.

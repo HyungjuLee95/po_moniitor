@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.core.config import PoServer, settings
 from app.integrations.sap_po.client import call, soap_client
-from app.integrations.sap_po.normalize import pick, records, serialize
+from app.integrations.sap_po.normalize import pick, records, recursive_values, serialize
 from app.integrations.rtims.repository import RtimsRepository
 from app.integrations.sap_po.errors import SapPoConnectionError
 
@@ -19,25 +19,25 @@ class InterfaceService:
                 }
             ]
         response = call(
-            soap_client(server.sid, "business_system").service.getBusinessSystemList
+            soap_client(server.sid, "business_system").service.Query,
+            BusinessSystemID=None,
+            Description=None,
+            AdministrativeData=None,
         )
-        result = []
-        for row in records(
-            response,
-            ("businessSystemId", "businessSystemName", "name", "id"),
-        ):
-            identifier = pick(row, "businessSystemId", "id", "name")
-            if identifier is None:
-                continue
-            result.append(
-                {
-                    "sid": server.sid,
-                    "business_system_id": str(identifier),
-                    "name": str(pick(row, "businessSystemName", "name", default=identifier)),
-                    "active": True,
-                }
-            )
-        return result
+        identifiers = sorted({
+            str(value)
+            for value in recursive_values(response, "ComponentID")
+            if value
+        })
+        return [
+            {
+                "sid": server.sid,
+                "business_system_id": str(identifier),
+                "name": str(identifier),
+                "active": True,
+            }
+            for identifier in identifiers
+        ]
 
     def topology(self, server: PoServer) -> list[dict]:
         if settings.rtims_configured:
@@ -80,6 +80,7 @@ class InterfaceService:
             for name in port.binding._operations
         }
         candidates = (
+            "getAllInterfaces",
             "getInterfaceInfo",
             "getInterfaces",
             "getInterfaceList",
@@ -101,15 +102,32 @@ class InterfaceService:
                 "operation",
                 "senderService",
                 "receiverService",
+                "fromAction",
+                "fromActionNamespace",
+                "fromService",
+                "toAction",
+                "toActionNamespace",
+                "toService",
             ),
         ):
-            name = pick(row, "interfaceName", "name", "interface")
+            from_action = pick(row, "fromAction")
+            to_action = pick(row, "toAction")
+            name = pick(
+                row,
+                "interfaceName",
+                "name",
+                "interface",
+                "fromAction",
+                "toAction",
+            )
             namespace = pick(
                 row,
                 "interfaceNamespace",
                 "namespace",
                 "outboundNamespace",
                 "inboundNamespace",
+                "fromActionNamespace",
+                "toActionNamespace",
             )
             if not name and not namespace:
                 continue
@@ -118,10 +136,26 @@ class InterfaceService:
                     "sid": server.sid,
                     "interface_name": str(name or ""),
                     "namespace": str(namespace or ""),
-                    "direction": str(pick(row, "direction", default="")),
-                    "source_system": pick(row, "senderService", "sourceSystem"),
-                    "target_system": pick(row, "receiverService", "targetSystem"),
-                    "operation": pick(row, "operation", "operationName"),
+                    "direction": str(
+                        pick(
+                            row,
+                            "direction",
+                            default=(
+                                "OUTBOUND_TO_INBOUND"
+                                if from_action and to_action
+                                else ""
+                            ),
+                        )
+                    ),
+                    "source_system": pick(
+                        row, "senderService", "sourceSystem", "fromService"
+                    ),
+                    "target_system": pick(
+                        row, "receiverService", "targetSystem", "toService"
+                    ),
+                    "operation": pick(
+                        row, "operation", "operationName", "toAction", "objectId"
+                    ),
                 }
             )
         return result

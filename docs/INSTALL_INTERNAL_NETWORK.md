@@ -75,7 +75,8 @@ work-dev.stderr.log
 | Python x64 | 3.11.7 | FastAPI 백엔드 |
 | Node.js x64 | 22.13.0 이상 | React 빌드와 실행 |
 | npm | 11.13.0 | 프론트 패키지 설치 |
-| PostgreSQL | 17 권장 | 사용자·권한·개인 설정·checkpoint |
+| PostgreSQL | 17 권장 | 사용자·권한·개인 설정·cache, profile 없는 Collector 호환 checkpoint |
+| Oracle RTIMS | 사내 운영 버전 | RTIMS 조회·Collector buffer·procedure·checkpoint |
 | Git | 선택 | 사내 Git 저장소를 사용할 때 |
 | Oracle Instant Client | 조건부 | 사내 Oracle 버전 또는 인증 방식이 python-oracledb Thin 모드를 지원하지 않을 때 |
 
@@ -250,8 +251,14 @@ notepad .env
 - SAP PO API 계정과 WSDL 경로
 - RTIMS Oracle runtime 접속정보와 owner `RTIMS_ORACLE_SCHEMA`
 - 신규 Oracle schema 생성 시에만 사용하는 `RTIMS_ORACLE_DDL_USER/PASSWORD`
+- 자동 Collector를 사용할 때만 `RTIMS_COLLECTOR_ENABLED=true`, 시작 지연, 서버별 `collectors` profile
+- 별도 Collector Oracle 계정을 사용할 때 `RTIMS_COLLECTOR_ORACLE_USER/PASSWORD`
 - JWT secret
 - 허용된 CORS 주소
+
+Collector는 기본 OFF다. `PO_SERVERS_JSON[].collectors` profile이 있으면 HANA `bc_msg/bc_msg_log`를 bounded page로 읽어 Oracle `MON_BUF_AAE_MSG`에 적재하고 `process_msg_logs`, Oracle checkpoint와 실행 로그를 한 transaction으로 처리한다. profile이 없는 서버만 PostgreSQL `monitoring.collector_checkpoint` 호환 경로를 사용한다.
+
+현재 원클릭 Oracle DDL은 조회 API용 14개 객체만 생성한다. Collector를 켜기 전에 DBA가 기존 전체 RTIMS schema의 buffer·sequence·procedure·의존 객체와 Collector 계정 최소 권한을 확인해야 한다. 첫 검증은 자동 실행을 끄고 `POST /api/v1/collectors/run`으로 한 SID·한 profile·작은 limit만 실행한다. HANA 조회량, Oracle buffer 건수, 가공 결과, `(TIMESTAMP, MESSAGE_ID)` checkpoint를 확인한 후 자동 실행을 켠다. 분산 잠금 전에는 Collector scheduler가 켜진 backend를 한 인스턴스만 실행한다.
 
 PostgreSQL migration은 번호 순서대로 한 번씩 적용한다.
 
@@ -278,7 +285,7 @@ cd D:\PO_MONITOR_MAIN
 .\scripts\setup-rtims-databases.ps1 -Target oracle -CheckOnly
 ```
 
-대상별 옵션은 `postgresql`, `oracle`, `all`이다. `setup-rtims-databases.bat`는 `all --apply`의 더블클릭 진입점이다. DDL에는 DROP·TRUNCATE·DELETE가 없고 이미 존재하는 객체는 유지한다. 단, 기존 테이블의 필수 컬럼이 빠진 경우 자동 변경하지 않고 실패하므로 DBA 확인이 필요하다. `MON_DAILY_CLOSE_STAT`은 제공 자료에 원본 DDL이 없어 현재 API가 사용하는 네 컬럼만 포함하며 Collector 전체 procedure와 scheduler는 별도 이식 대상이다.
+대상별 옵션은 `postgresql`, `oracle`, `all`이다. `setup-rtims-databases.bat`는 `all --apply`의 더블클릭 진입점이다. DDL에는 DROP·TRUNCATE·DELETE가 없고 이미 존재하는 객체는 유지한다. 단, 기존 테이블의 필수 컬럼이 빠진 경우 자동 변경하지 않고 실패하므로 DBA 확인이 필요하다. `MON_DAILY_CLOSE_STAT`은 제공 자료에 원본 DDL이 없어 현재 API가 사용하는 네 컬럼만 포함한다. Collector 실행 코드는 구현됐지만 원클릭 DDL에는 전체 buffer·procedure 의존 schema가 포함되지 않는다.
 
 Oracle DDL owner와 backend runtime 사용자가 다르면 `RTIMS_ORACLE_SCHEMA`는 DDL owner와 같아야 한다. 원클릭 설치는 runtime 사용자에게 조회 권한과 `MON_ERR_HIST` 장애처리 컬럼의 UPDATE 권한만 부여한다. 사내 보안정책상 자동 grant가 금지되면 `-SkipRuntimeGrants`로 생성하고 DBA가 같은 최소 권한을 별도 승인·적용한다.
 

@@ -55,7 +55,7 @@ class MessageService:
             settings.sap_aae_delivery_semantics,
             settings.sap_aae_host_id_table,
             settings.sap_aae_host_id_field,
-            limit,
+            str(limit),
         )
         result = []
         for row in records(
@@ -119,15 +119,21 @@ class MessageService:
         messages = call(
             client.service.getMessagesByIDs,
             messageIds=[message_id],
+            referenceIds=["0"],
+            correlationIds=["0"],
+            archive=False,
         )
         keys = recursive_values(messages, "messageKey")
         logs: list[dict] = []
         for key in dict.fromkeys(str(value) for value in keys if value):
+            message_key = key if key.endswith("\\") else f"{key}\\"
             response = call(
                 client.service.getLogEntries,
-                messageKey=key,
+                messageKey=message_key,
+                archive=False,
                 maxResults=100,
-                olderThan=datetime.now(timezone.utc),
+                olderThan=datetime.now(),
+                locale=None,
             )
             for row in records(response, ("status", "timeStamp", "localizedText")):
                 logs.append(

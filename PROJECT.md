@@ -6,7 +6,7 @@ SAP PO와 RTIMS 운영자가 여러 서버의 메시지·채널·인터페이스
 
 ## 대상 사용자
 
-- `ADMIN(admin)`: 사용자·권한·환경·대량 작업을 포함한 전체 관리
+- `ADMIN(Administrator)`: 시스템에 한 계정만 두고 사용자·권한·환경·대량 작업을 포함한 전체 관리
 - `OPERATOR(관리자)`: 운영 조회, 채널 제어, 장애 처리
 - `VIEWER(일반)`: 허용된 서버와 메뉴의 조회
 - 사용 환경: 인터넷 연결이 제한된 Windows 사내망
@@ -15,11 +15,14 @@ SAP PO와 RTIMS 운영자가 여러 서버의 메시지·채널·인터페이스
 
 - `.env` 기반 SAP PO 서버 registry와 동적 서버 선택
 - 사용자·역할·서버 접근 권한
+- 공개 가입 후 Administrator 승인·역할·서버 범위 지정
 - 24시간 트래픽, 시스템 처리 결과, Queue, 리소스 대시보드
 - 채널 상태·시스템별 채널 정보·단건 및 대량 제어
+- SAP PO 키스토어 인증서 View·Alias·만료 상태 조회
 - 채널 검색에서 메시지 목록을 거쳐 Message ID Audit을 조회하는 추적 흐름
 - HRD 인터페이스 선택 조회·Excel·테스트 메시지·일일 점검
 - RTIMS 통계·장애·실시간 인터페이스와 Oracle IFS 동기화
+- 서버별 HANA profile 기반 RTIMS Oracle Collector와 복합 checkpoint
 - 사용자별 대시보드·즐겨찾기·워크스페이스·운영 게시글
 - JSON 계약 기반 LLM 장애 분석 중계 형태
 
@@ -83,7 +86,8 @@ Browser (Next.js)
 | alerts | 실시간 알림과 확인 | [`README`](frontend/src/domains/alerts/README.md) | [`README`](backend/app/domains/alerts/README.md) |
 | auth | 로그인·세션·역할 | [`README`](frontend/src/domains/auth/README.md) | [`README`](backend/app/domains/auth/README.md) |
 | channels | 채널 상태·정보·제어·대량 작업 | [`README`](frontend/src/domains/channels/README.md) | [`README`](backend/app/domains/channels/README.md) |
-| collectors | checkpoint와 증분 수집 | [`README`](frontend/src/domains/collectors/README.md) | [`README`](backend/app/domains/collectors/README.md) |
+| certificates | 키스토어 인증서·만료·임박 상태 | [`README`](frontend/src/domains/certificates/README.md) | [`README`](backend/app/domains/certificates/README.md) |
+| collectors | 서버별 HANA 증분 수집·Oracle buffer/procedure/checkpoint | [`README`](frontend/src/domains/collectors/README.md) | [`README`](backend/app/domains/collectors/README.md) |
 | configuration/server/settings | 서버 registry·선택·환경 및 사용자 설정 | [`server`](frontend/src/domains/server/README.md), [`settings`](frontend/src/domains/settings/README.md) | [`configuration`](backend/app/domains/configuration/README.md) |
 | dashboard | 사용자별 위젯·즐겨찾기·요약 지표 | [`README`](frontend/src/domains/dashboard/README.md) | [`README`](backend/app/domains/dashboard/README.md) |
 | hrd | HRD 조회·Excel·테스트 메시지·일일 점검 | [`README`](frontend/src/domains/hrd/README.md) | [`README`](backend/app/domains/hrd/README.md) |

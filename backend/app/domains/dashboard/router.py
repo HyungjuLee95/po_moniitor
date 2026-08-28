@@ -39,6 +39,7 @@ ALL_VIEWS = {
     "audit", "interfaces", "performance", "system_status", "topology",
     "namespaces", "channel_control", "channel_bulk", "hrd", "hrd_test",
     "daily_checks", "workspaces", "oracle_ifs", "posts", "account", "settings",
+    "certificates",
 }
 
 

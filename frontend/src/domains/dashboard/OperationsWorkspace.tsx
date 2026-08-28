@@ -12,6 +12,7 @@ import { mockAlerts } from "../alerts/mockAlerts";
 import type { AlertItem } from "../alerts/types";
 import { ChannelStatusWidget } from "../channels/ChannelStatusWidget";
 import { ChannelsPage } from "../channels/ChannelsPage";
+import { CertificatesPage } from "../certificates/CertificatesPage";
 import { CollectorsPage } from "../collectors/CollectorsPage";
 import { IncidentsPage } from "../incidents/IncidentsPage";
 import { InterfacesPage } from "../interfaces/InterfacesPage";
@@ -57,6 +58,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
   const [alertsLoading, setAlertsLoading] = useState(true);
   const dashboard = useDashboardLayout();
   const nav = useMemo(() => navigationFor(user.role), [user.role]);
+  const roleLabel = user.role === "ADMIN" ? "Administrator" : user.role === "OPERATOR" ? "관리자" : "일반";
   const navGroups = useMemo(
     () => navigationCategories
       .map((category) => ({ ...category, items: nav.filter((item) => item.category === category.id) }))
@@ -73,6 +75,10 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
       .sort((a, b) => (dashboard.layout.view_usage[b.id] ?? 0) - (dashboard.layout.view_usage[a.id] ?? 0));
     return [...favorites, ...used].slice(0, 5);
   }, [dashboard.layout.favorite_views, dashboard.layout.view_usage, nav]);
+  const dashboardShortcuts = useMemo(
+    () => nav.filter((item) => ["realtime_interfaces", "channels", "messages", "certificates"].includes(item.id)),
+    [nav],
+  );
 
   useEffect(() => {
     apiFetch<Bootstrap>("/configuration/bootstrap")
@@ -297,6 +303,8 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         return <WorkspacesPage user={user} />;
       case "incidents":
         return <IncidentsPage sid={selectedSid} user={user} />;
+      case "certificates":
+        return <CertificatesPage sid={selectedSid} />;
       case "collectors":
         return <CollectorsPage user={user} />;
       case "settings":
@@ -359,7 +367,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         </div>
         <button className="user-card" onClick={onLogout}>
           <span>{user.display_name.slice(0, 1)}</span>
-          <div><b>{user.display_name}</b><small>{user.role}</small></div>
+          <div><b>{user.display_name}</b><small>{roleLabel}</small></div>
           <em>로그아웃</em>
         </button>
       </aside>
@@ -391,7 +399,7 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
                 </select>
               </span>
             </label>
-            <button className="customize-button" onClick={() => setEditorOpen(true)}><span>+</span> 대시보드 편집</button>
+            {view === "overview" && <button className="customize-button" onClick={() => setEditorOpen(true)}><span>+</span> 대시보드 편집</button>}
             <button className={`alert-button ${criticalCount ? "has-critical" : ""}`} onClick={() => setAlertsOpen(true)} aria-label={`알림 ${openAlerts.length}건`}>
               <i />
               {openAlerts.length > 0 && <b>{openAlerts.length}</b>}
@@ -400,14 +408,19 @@ export function OperationsWorkspace({ user, onLogout }: { user: User; onLogout: 
         </header>
 
         <div className="workspace-content">
-          <section className="welcome-row">
-            <div>
-              <p className="kicker">{new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}</p>
-              <h2>{user.display_name}님, 운영 흐름을 확인하세요.</h2>
-              <p>{activeServer?.display_name} 기준으로 최신 상태를 보여드립니다.</p>
-            </div>
-            <div className="live-clock"><i /><span><b>LIVE</b><small>15분마다 자동 갱신</small></span></div>
-          </section>
+          {view === "overview" && <>
+            <section className="welcome-row">
+              <div>
+                <p className="kicker">{new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}</p>
+                <h2>{user.display_name}님, 운영 흐름을 확인하세요.</h2>
+                <p>{activeServer?.display_name} 기준 · 성공한 데이터부터 표시 · 15분 자동 갱신</p>
+              </div>
+              <div className="live-clock"><i /><span><b>LIVE</b><small>기존 화면 유지 갱신</small></span></div>
+            </section>
+            <nav className="dashboard-shortcuts" aria-label="대시보드 빠른 이동">
+              {dashboardShortcuts.map((item) => <button key={item.id} onClick={() => selectView(item.id)}><span>{item.glyph}</span><div><small>{item.eyebrow}</small><b>{item.label}</b></div><em>→</em></button>)}
+            </nav>
+          </>}
 
           {renderView()}
         </div>

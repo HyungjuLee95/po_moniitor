@@ -1,5 +1,45 @@
 # 프로젝트 ERROR
 
+## 2026-08-27 / 권한 smoke test 보조 명령 오류와 localhost 포트 충돌
+
+- 증상: 첫 환경 요약 PowerShell의 파이프 문법 오류, 존재하지 않는 `ServerRegistry.enabled()` 호출, JSON으로 보낸 form 로그인 422가 각각 한 번 발생했다. 브라우저의 `localhost:3000`은 IPv6에서 다른 로컬 프로젝트를 표시했다.
+- 영향: 프로젝트 코드와 외부 시스템에는 영향이 없었고 검증 실행만 지연됐다.
+- 원인: 검증용 일회성 명령의 PowerShell 구문, 실제 registry 메서드명과 로그인 content type을 먼저 확인하지 않았고 IPv4·IPv6에 서로 다른 개발 서버가 수신 중이었다.
+- 해결: 명령을 분리해 `list_enabled()`, form-urlencoded 로그인과 `127.0.0.1:3000`을 사용했다.
+- 검증: Python 3.11.7 직접 smoke test, FastAPI 로그인·조회 API와 실제 PO 로그인 화면 렌더를 확인했다.
+- 재발 방지: 테스트 전에 실제 메서드·route 계약과 3000 포트의 IPv4·IPv6 listener를 확인한다.
+- 관련 파일 또는 명령: `backend/app/domains/configuration/registry.py`, `backend/app/domains/auth/router.py`, `Get-NetTCPConnection`.
+
+## 2026-08-23 / loopback hostname 불일치로 로그인 성공 응답 차단
+
+- 증상: `127.0.0.1:3000` 미리보기에서 올바른 Administrator 계정으로 로그인해도 계정·백엔드 확인 안내가 표시됐다.
+- 영향: backend 로그인은 HTTP 200이지만 브라우저가 응답을 사용하지 못해 대시보드로 전환되지 않았다.
+- 원인: frontend Origin은 `http://127.0.0.1:3000`, CORS 허용값은 `http://localhost:3000`으로 hostname이 달랐다.
+- 해결: 미리보기 주소를 CORS 설정과 동일한 `http://localhost:3000`으로 전환했다.
+- 검증: backend 로그인 요청 200과 health 응답의 `Access-Control-Allow-Origin: http://localhost:3000`을 확인했다.
+- 재발 방지: 로컬 실행 문서의 기본 URL인 `localhost:3000`을 사용하고, 127.0.0.1이 필요하면 `CORS_ORIGINS_RAW`에 정확한 Origin을 추가한다.
+- 관련 파일 또는 설정: `.env`, `CORS_ORIGINS_RAW`, `frontend/src/core/runtime.ts`
+
+## 2026-08-23 / frontend lint 실행 위치 오류
+
+- 증상: 가입·메뉴 변경 검증 중 프로젝트 루트에서 `npm run lint`를 실행해 `package.json` ENOENT가 발생했다.
+- 영향: 코드나 의존성에는 영향이 없었고 frontend 검증 결과 수집만 지연되었다.
+- 원인: frontend npm script는 `frontend/package.json`을 기준으로 하지만 명령의 작업 폴더를 저장소 루트로 지정했다.
+- 해결: `D:\toyproject\PO_MONITOR_MAIN\frontend`를 작업 폴더로 지정해 lint와 build/render test를 다시 실행한다.
+- 검증: 올바른 작업 폴더에서 `npm run lint`, 공식 Next.js build와 렌더 테스트를 모두 통과했다.
+- 재발 방지: frontend npm 명령은 항상 frontend 작업 폴더에서 실행한다.
+- 관련 파일 또는 명령: `frontend/package.json`, `cd frontend; npm run lint`
+
+## 2026-08-23 / 신규 certificates 도메인 색인 누락
+
+- 증상: 인증서 frontend/backend 도메인 문서 세트를 추가한 첫 문서 검증에서 두 도메인이 루트 `SKILL.md` 색인에 없다는 오류가 발생했다.
+- 영향: 코드와 도메인 문서는 정상이나 AI 탐색용 문서 품질 게이트를 통과하지 못했다.
+- 원인: `PROJECT.md` 도메인 지도만 갱신하고 validator가 함께 요구하는 `SKILL.md` 도메인 색인을 누락했다.
+- 해결: 루트 도메인 색인에 certificates frontend/backend README 링크와 책임을 추가했다.
+- 검증: `python scripts/validate_project_docs.py`를 재실행한다.
+- 재발 방지: 신규 도메인은 다섯 문서, PROJECT 지도, SKILL 색인을 한 변경 단위로 추가한다.
+- 관련 파일: `SKILL.md`, `scripts/validate_project_docs.py`.
+
 ## 2026-07-30 / 프론트 런타임과 공식 Next.js 배포 환경 불일치
 
 - 증상: Next.js 형태의 소스가 Vinext/Vite/Cloudflare Worker 런타임으로 실행되어 표준 Next.js 환경에서 오류가 발생했다.
@@ -173,3 +213,12 @@
 - 해결: `rg --files backend/tests`로 실제 테스트 목록을 확인하고 독립 테스트 파일을 추가함
 - 검증: 전체 backend pytest로 신규 LLM provider 테스트를 포함해 확인함
 - 재발 방지: 테스트 보조 파일을 열기 전에 대상 디렉터리의 실제 파일 목록부터 확인함
+
+## 2026-08-28 / 통합 검증 명령의 작업 폴더 오류 재발
+
+- 증상: `frontend`를 작업 폴더로 둔 통합 명령에서 `backend/tests` 경로를 찾지 못해 첫 pytest 실행이 실패했다.
+- 영향: 코드에는 영향이 없었지만 전체 검증이 한 차례 실행되지 않았다.
+- 원인: backend와 frontend 검증을 한 명령으로 합치면서 공통 기준 폴더를 프로젝트 루트로 고정하지 않았다.
+- 해결: 프로젝트 루트에서 backend·문서 검증을 실행하고 frontend 명령은 `npm --prefix frontend`와 명시적 테스트 경로를 사용했다.
+- 검증: Python 3.11.7 backend 74개 test, 문서 검사, frontend lint·build·render test가 통과했다.
+- 재발 방지: 통합 검증 명령의 working directory는 프로젝트 루트로 고정하고 영역별 도구에 `--prefix` 또는 전체 상대 경로를 사용한다.

@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from pydantic import SecretStr
 
 from app.core.config import Settings
@@ -63,7 +64,9 @@ def test_server_specific_connection_settings_override_common_values() -> None:
                     "endpoint_paths": {
                         "channels": "/custom/CommunicationChannel?wsdl",
                         "directory": "/custom/dir/read/ext",
+                        "keystore_help": "/custom/KeystoreHelp/basic",
                     },
+                    "host_aliases": ["PMP", "pmp.internal."],
                 }
             ]
         ),
@@ -74,7 +77,10 @@ def test_server_specific_connection_settings_override_common_values() -> None:
     assert credentials(server) == ("pmp-user", "pmp-password")
     assert service_path("channels", server) == "/custom/CommunicationChannel?wsdl"
     assert server.endpoint_path("directory", "/dir/read/ext") == "/custom/dir/read/ext"
+    assert server.endpoint_path("keystore_help", "/KeystoreHelp/basic") == "/custom/KeystoreHelp/basic"
+    assert server.host_aliases == ["pmp", "pmp.internal"]
     assert "endpoint_paths" not in server.public_view()
+    assert "host_aliases" not in server.public_view()
 
 
 def test_empty_server_password_falls_back_to_common_password(monkeypatch) -> None:
@@ -125,3 +131,120 @@ def test_rtims_postgresql_setup_can_use_a_separate_database() -> None:
     )
 
     assert "rtims-db/rtims" in configured.rtims_postgres_setup_url
+
+
+def test_rtims_collector_settings_are_opt_in_and_bounded() -> None:
+    defaults = Settings(_env_file=None, po_servers_json="[]")
+    configured = Settings(
+        _env_file=None,
+        po_servers_json="[]",
+        rtims_collector_enabled=True,
+        rtims_collector_startup_delay_seconds=5,
+        rtims_collector_interval_seconds=60,
+        rtims_collector_limit=250,
+    )
+
+    assert defaults.rtims_collector_enabled is False
+    assert configured.rtims_collector_enabled is True
+    assert configured.rtims_collector_interval_seconds == 60
+    assert configured.rtims_collector_limit == 250
+    with pytest.raises(ValueError):
+        Settings(
+            _env_file=None,
+            po_servers_json="[]",
+            rtims_collector_interval_seconds=29,
+        )
+
+
+def test_server_collector_profiles_are_private_and_unique() -> None:
+    configured = Settings(
+        _env_file=None,
+        po_servers_json=json.dumps(
+            [
+                {
+                    "sid": "POP",
+                    "display_name": "Production",
+                    "environment": "production",
+                    "base_url": "https://pop.example.internal",
+                    "capabilities": ["monitor", "collector"],
+                    "collectors": [
+                        {
+                            "collector_id": "aae-be",
+                            "oracle_instance_id": 101,
+                            "delivery_semantics": "be",
+                            "hana_user": "collector-user",
+                            "hana_password": "collector-secret",
+                            "po_db_schema": "SAPPO",
+                        }
+                    ],
+                }
+            ]
+        ),
+    )
+
+    profile = configured.po_servers[0].collectors[0]
+    assert profile.delivery_semantics == "BE"
+    assert profile.hana_password.get_secret_value() == "collector-secret"
+    assert "collectors" not in configured.po_servers[0].public_view()
+
+    with pytest.raises(ValueError):
+        Settings(
+            _env_file=None,
+            po_servers_json=json.dumps(
+                [
+                    {
+                        "sid": "POP",
+                        "display_name": "Production",
+                        "environment": "production",
+                        "base_url": "https://pop.example.internal",
+                        "collectors": [
+                            {
+                                "collector_id": "aae-be",
+                                "oracle_instance_id": 101,
+                            },
+                            {
+                                "collector_id": "AAE-BE",
+                                "oracle_instance_id": 102,
+                            },
+                        ],
+                    }
+                ]
+            ),
+        ).po_servers
+
+
+def test_collector_oracle_instance_ids_are_unique_across_servers() -> None:
+    with pytest.raises(ValueError, match="oracle_instance_id"):
+        Settings(
+            _env_file=None,
+            po_servers_json=json.dumps(
+                [
+                    {
+                        "sid": sid,
+                        "display_name": sid,
+                        "environment": "production",
+                        "base_url": f"https://{sid.lower()}.example.internal",
+                        "collectors": [
+                            {
+                                "collector_id": "aae-be",
+                                "oracle_instance_id": 101,
+                            }
+                        ],
+                    }
+                    for sid in ("POP", "PMP")
+                ]
+            ),
+        ).po_servers
+
+
+def test_collector_oracle_connection_can_support_manual_run_when_scheduler_is_off() -> None:
+    configured = Settings(
+        _env_file=None,
+        rtims_collector_enabled=False,
+        rtims_oracle_host="oracle.internal",
+        rtims_oracle_service="RTIMS",
+        rtims_collector_oracle_user="collector",
+        rtims_collector_oracle_password="secret",
+    )
+
+    assert configured.rtims_collector_oracle_configured is True

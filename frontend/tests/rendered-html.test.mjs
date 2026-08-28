@@ -37,6 +37,9 @@ test("server-renders the PO Monitor login page", async () => {
   assert.match(html, /MONITOR MAIN/);
   assert.match(html, /CONNECTED OPERATIONS/);
   assert.match(html, /운영 콘솔 로그인/);
+  assert.match(html, /가입 신청/);
+  assert.match(html, /Administrator/);
+  assert.match(html, /계정은 시스템에서 한 개만 관리합니다/);
   assert.match(html, /사용자 ID/);
   assert.match(html, /비밀번호/);
   assert.doesNotMatch(html, /Your site is taking shape/);

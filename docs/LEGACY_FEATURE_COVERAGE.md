@@ -40,11 +40,12 @@
 | 시스템 그룹 통계·대기 상세 | 사내검증 필요 | RTIMS PM/통계/MON_Q_STATUS. `MON_DAILY_CLOSE_STAT` DDL 확인 필요 |
 | Oracle IFS 동기화 | 완료 | 별도 Oracle 설정, PostgreSQL cache, 수동·선택적 scheduler |
 | 게시글·비밀번호 찾기·직접 변경 | 완료 | 소유권 게시글, 관리자 승인형 reset token |
-| Collector 상태·수동 실행 | 부분 | PostgreSQL checkpoint와 프로세스 내부 잠금 완료. 시간창 분할·중복 제거·페이지 수집과 다중 인스턴스 분산 잠금은 후속 |
+| Collector 상태·수동 실행 | 사내검증 필요 | 서버별 HANA BE/EO profile, bounded composite checkpoint, Oracle buffer·procedure·상태 조회 구현. 전체 Oracle schema·실데이터·분산 잠금 검증은 후속 |
 | 장애 알림과 LLM 분석 형태 | 부분 | UI/API 계약은 있으나 실시간 RTIMS 알림과 실제 LLM은 미연결 |
 | 프로젝트 워크스페이스 CRUD·단계 진행 | 완료 | owner-scoped PostgreSQL CRUD와 단계 진행 UI |
 | 사용자·역할·서버 접근 관리 | 완료 | admin/관리자/일반 역할, PBKDF2 비밀번호, 서버별 백엔드 권한 검사 |
 | 응답 지연 drill-down·기준 설정 | 완료 | MON_MSG_LOG 원본 목록과 서버별 policy |
+| SAP PO 키스토어 인증서·만료 현황 | 사내검증 필요 | KeystoreHelp 실조회 완료, KeystoreService 미배포 서버는 만료일 미확인으로 저하 동작 |
 
 `OperationsWorkspace.tsx`라는 현재 컴포넌트 이름은 화면 전체 shell을 뜻한다.
 원본 프로젝트의 작업·전송 상태 관리용 `워크스페이스` 기능이 구현되었다는 뜻은 아니다.

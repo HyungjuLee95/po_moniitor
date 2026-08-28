@@ -57,9 +57,12 @@
 - 프론트 공개값만 `NEXT_PUBLIC_` 접두사를 사용한다.
 - 서버 추가는 `PO_SERVERS_JSON`으로 처리한다.
 - 각 서버는 독립적인 `base_url`, `port`, `username`, `password`, `endpoint_paths`를 가질 수 있으며 지정하지 않은 계정·경로만 공통 SAP 설정을 fallback으로 사용한다.
+- RTIMS Collector 서버는 `collectors` profile마다 HANA host·port·계정·schema, BE/EO, 간격·상한과 전역 고유 `oracle_instance_id`를 가진다. 비어 있는 HANA 연결값만 공통 `SAP_HANA_*`를 fallback으로 사용한다.
+- WSDL 내부 import가 short hostname을 사용하면 해당 서버의 `host_aliases`에서만 origin 치환 대상을 관리한다.
 - `endpoint_paths`에는 내부 host 전체가 아니라 `/`로 시작하는 WSDL·HTTP 경로만 기록하며 host와 port는 해당 서버의 `base_url`, `port`를 사용한다.
 - SID는 2~8자 대문자·숫자, PostgreSQL 식별자는 소문자 snake_case를 사용한다.
 - RTIMS 신규 schema는 `scripts/setup_rtims_databases.py`로만 생성·검증한다. Oracle runtime·DDL owner를 분리하고 PostgreSQL 별도 대상은 `RTIMS_POSTGRES_DATABASE_URL`로 지정한다. 정확한 권한과 제한은 `backend/app/integrations/rtims/MANUAL.md`를 따른다.
+- Collector 자동 실행은 기본 OFF인 `RTIMS_COLLECTOR_ENABLED`로 관리한다. Oracle profile은 HANA→Oracle buffer→procedure→Oracle checkpoint 계약을 사용하고 profile 없는 서버만 PostgreSQL checkpoint 호환 경로를 사용한다. 전체 RTIMS schema·권한과 단일 scheduler 제한은 `backend/app/domains/collectors/MANUAL.md`를 따른다.
 
 ## 도메인 요약
 
@@ -67,6 +70,7 @@
 - `configuration/server`: 서버 등록과 선택
 - `dashboard/monitoring`: 사용자 화면 구성과 운영 지표
 - `channels/messages/interfaces`: SAP PO 핵심 조회
+- `certificates`: SAP PO 키스토어 View·Alias·만료 상태 조회
 - `incidents/alerts`: 장애 이력과 실시간 대응
 - `collectors`: 부하를 고려한 증분 수집
 - `workspaces`: 사용자 소유 작업과 단계별 진행
@@ -76,20 +80,21 @@
 - `oracle_ifs`: 별도 Oracle IFS 동기화와 PostgreSQL cache
 - `posts`: 운영 지식 게시글
 
-HRD는 필수 이식 범위다. HRD 도메인의 다섯 문서와 메뉴·API·데이터 원본을 함께 유지한다.
+HRD는 특정 프로젝트용 선택 기능이다. HRD 도메인 자체는 이식 범위에 유지하되, 실제 HRD 프로젝트 서버에만 `hrd` capability와 sender/test-message 매핑을 설정한다. capability가 없는 서버에서는 HRD 메뉴·대시보드 위젯·API 호출을 노출하거나 자동 실행하지 않는다.
 
 ## 운영 메뉴 원칙
 
-- 메뉴는 기술 API가 아니라 `현황 → 추적·분석 → 채널 운영 → HRD 업무 → 업무 도구 → 관리`의 실제 사용 흐름을 따른다.
+- 메뉴는 기술 API가 아니라 `현황 → 운영 → 분석 → 관리`의 실제 사용 흐름을 따른다. 채널·HRD·IFS 실행 기능은 운영, 메시지·Audit·Namespace는 분석에 둔다.
 - 채널 컨트롤과 Excel 대량 변경, HRD 조회와 테스트 전송은 권한과 작업 위험이 다르므로 독립 메뉴로 유지한다.
 - 사용자가 고정한 메뉴와 사용 빈도가 높은 메뉴는 `자주 사용하는 메뉴`에 노출하되 서버 권한으로 허용된 메뉴만 표시한다.
 - Legacy 연결 상태는 판단 원본이 확인되기 전 정상·오류를 추정하지 않고 `데이터 원본 설정 필요`로 표시한다.
 
 ## 사용자 역할
 
-- `ADMIN`은 화면 표시명을 `admin`으로 사용하고 사용자·환경 설정을 포함한 전체 권한을 가진다.
+- `ADMIN`은 화면 표시명을 `Administrator`로 사용하고 시스템에 한 계정만 유지한다.
 - `OPERATOR`는 화면 표시명을 `관리자`로 사용하고 조회·채널 운영 권한을 가진다.
 - `VIEWER`는 화면 표시명을 `일반`으로 사용하고 조회 전용 권한을 가진다.
+- 신규 사용자는 로그인 화면에서 가입하며 `VIEWER`, 비활성, 접근 서버 없음으로 생성된다. Administrator가 역할과 서버를 지정해 활성화해야 로그인할 수 있다.
 - 메뉴 숨김은 보조 UX이며 permission과 서버 접근 범위는 백엔드에서 다시 검사한다.
 
 ## 프로젝트 품질 검사

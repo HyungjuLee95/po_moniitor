@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -24,6 +25,31 @@ ServiceName = Literal[
     "business_system",
     "interface_monitor",
 ]
+
+
+def rewrite_host_alias(url: str, server: PoServer) -> str:
+    parsed = urlsplit(url)
+    hostname = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme not in {"http", "https"} or hostname not in server.host_aliases:
+        return url
+    origin = urlsplit(server.origin)
+    return urlunsplit(
+        (origin.scheme, origin.netloc, parsed.path, parsed.query, parsed.fragment)
+    )
+
+
+class SapPoSession(Session):
+    def __init__(self, server: PoServer) -> None:
+        super().__init__()
+        self.server = server
+
+    def request(self, method, url, *args, **kwargs):
+        return super().request(
+            method,
+            rewrite_host_alias(str(url), self.server),
+            *args,
+            **kwargs,
+        )
 
 
 def credentials(server: PoServer) -> tuple[str, str]:
@@ -58,7 +84,7 @@ def endpoint(server: PoServer, path: str) -> str:
 
 def build_session(server: PoServer) -> Session:
     username, password = credentials(server)
-    session = Session()
+    session = SapPoSession(server)
     session.auth = HTTPBasicAuth(username, password)
     session.verify = settings.sap_verify_tls
     retry = Retry(

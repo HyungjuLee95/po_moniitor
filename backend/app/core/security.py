@@ -16,6 +16,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "incidents:read", "incidents:resolve", "collectors:read", "collectors:run",
         "interfaces:read", "dashboard:read", "dashboard:write", "alerts:read",
         "alerts:acknowledge", "llm-search:read",
+        "certificates:read",
         "workspaces:read", "workspaces:write",
         "hrd:read", "hrd:test", "posts:read", "posts:write",
         "oracle-ifs:read", "oracle-ifs:write",
@@ -63,14 +64,23 @@ def current_user(
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="invalid or expired token") from exc
-    role = str(payload.get("role", "VIEWER")).upper()
+    username = str(payload["sub"])
+    from app.domains.auth.repository import UserRepository
+
+    repository = UserRepository()
+    try:
+        profile = repository.get_user(username)
+    except LookupError as exc:
+        raise HTTPException(status_code=401, detail="account is unavailable") from exc
+    if not profile["active"]:
+        raise HTTPException(status_code=401, detail="account is inactive")
+    role = str(profile["role"]).upper()
     user = {
-        "username": str(payload["sub"]),
+        "username": username,
         "role": role,
         "permissions": permissions_for(role),
     }
-    from app.domains.auth.repository import UserRepository
-    user["allowed_sids"] = UserRepository().allowed_sids(user["username"], role)
+    user["allowed_sids"] = repository.allowed_sids(username, role)
     return user
 
 

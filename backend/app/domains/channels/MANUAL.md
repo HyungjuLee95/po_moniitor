@@ -8,3 +8,4 @@
 - 비밀번호 포함 상세는 `channels:secrets` 권한이 필요하고 목록·로그에 절대 노출하지 않는다.
 - 대량 Excel 추출과 변경 미리보기는 `channels:secrets` 권한이 필요하며 다운로드 응답을 캐시하지 않는다. 미리보기 응답의 비밀번호는 마스킹한다.
 - 일괄 제어는 채널별 `progress`와 최종 `complete` SSE 이벤트를 반환한다.
+- 전체 component 조회(`component_id=*`)는 CommunicationChannel Query의 필수 `ComponentID`에 문자열 `*`를 보내지 않는다. 현재 Zeep에서는 `xsd.SkipValue`로 element를 생략해 Legacy의 `None` wire 계약을 재현한다.

@@ -11,6 +11,7 @@ export type ViewId =
   | "performance"
   | "topology"
   | "incidents"
+  | "certificates"
   | "collectors"
   | "workspaces"
   | "settings"

@@ -10,7 +10,9 @@ from app.database import check_database
 from app.domains.auth.router import router as auth_router
 from app.domains.alerts.router import router as alerts_router
 from app.domains.channels.router import router as channels_router
+from app.domains.certificates.router import router as certificates_router
 from app.domains.collectors.router import router as collectors_router
+from app.domains.collectors.scheduler import CollectorScheduler
 from app.domains.configuration.router import router as configuration_router
 from app.domains.configuration.repository import ConfigurationRepository
 from app.domains.configuration.registry import ServerRegistry
@@ -33,6 +35,8 @@ from app.domains.oracle_ifs.service import OracleIfsService
 async def lifespan(_: FastAPI):
     ifs_stop = Event()
     ifs_thread = None
+    collector_stop = Event()
+    collector_thread = None
     if settings.database_connect_on_startup and not settings.demo_mode:
         check_database()
         ConfigurationRepository().sync_servers(ServerRegistry().list_enabled())
@@ -44,10 +48,23 @@ async def lifespan(_: FastAPI):
             daemon=True,
         )
         ifs_thread.start()
+    if settings.rtims_collector_enabled:
+        collector_scheduler = CollectorScheduler()
+        collector_scheduler.validate_configuration()
+        collector_thread = Thread(
+            target=collector_scheduler.run,
+            args=(collector_stop,),
+            name="rtims-collector",
+            daemon=True,
+        )
+        collector_thread.start()
     try:
         yield
     finally:
+        collector_stop.set()
         ifs_stop.set()
+        if collector_thread is not None:
+            collector_thread.join(timeout=5)
         if ifs_thread is not None:
             ifs_thread.join(timeout=5)
 
@@ -82,6 +99,7 @@ for router in (
     dashboard_router,
     monitoring_router,
     channels_router,
+    certificates_router,
     messages_router,
     incidents_router,
     alerts_router,

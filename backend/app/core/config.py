@@ -5,7 +5,7 @@ from urllib.parse import urlsplit, urlunsplit
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +21,57 @@ SapPoEndpointName = Literal[
     "interface_monitor",
     "directory",
     "hrd_test",
+    "keystore_help",
+    "keystore_certificates",
 ]
+CollectorSource = Literal["hana"]
+CollectorDeliverySemantics = Literal["BE", "EO"]
+
+
+class RtimsCollectorProfile(BaseModel):
+    collector_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")
+    oracle_instance_id: int = Field(gt=0)
+    enabled: bool = True
+    source: CollectorSource = "hana"
+    delivery_semantics: CollectorDeliverySemantics = "BE"
+    interval_seconds: int = Field(default=300, ge=30, le=86400)
+    limit: int = Field(default=500, ge=100, le=5000)
+    initial_lookback_seconds: int = Field(default=0, ge=0, le=86400)
+    pending_search_minutes: int = Field(default=30, ge=2, le=1440)
+    persist_duration_days: int = Field(default=30, ge=1, le=3650)
+    multi_server_run_duration_days: int = Field(default=1, ge=1, le=365)
+    hana_host: str = ""
+    hana_port: int | None = Field(default=None, ge=1, le=65535)
+    hana_user: str = ""
+    hana_password: SecretStr = SecretStr("")
+    po_db_schema: str = Field(
+        default="",
+        pattern=r"^$|^[A-Za-z][A-Za-z0-9_$#]{0,127}$",
+    )
+    host_id_table: str = Field(
+        default="",
+        pattern=r"^$|^[A-Za-z][A-Za-z0-9_$#]{0,127}$",
+    )
+    host_id_field: str = Field(
+        default="",
+        pattern=r"^$|^[A-Za-z][A-Za-z0-9_$#]{0,127}$",
+    )
+
+    @field_validator("collector_id", mode="before")
+    @classmethod
+    def normalize_collector_id(cls, value: str) -> str:
+        return value.strip().lower()
+
+    @field_validator("delivery_semantics", mode="before")
+    @classmethod
+    def normalize_delivery_semantics(cls, value: str) -> str:
+        return value.strip().upper()
+
+    @model_validator(mode="after")
+    def validate_host_id_pair(self) -> "RtimsCollectorProfile":
+        if bool(self.host_id_table) != bool(self.host_id_field):
+            raise ValueError("host_id_table and host_id_field must be configured together")
+        return self
 
 
 class PoServer(BaseModel):
@@ -33,6 +83,8 @@ class PoServer(BaseModel):
     username: str | None = None
     password: SecretStr | None = None
     endpoint_paths: dict[SapPoEndpointName, str] = Field(default_factory=dict)
+    host_aliases: list[str] = Field(default_factory=list)
+    collectors: list[RtimsCollectorProfile] = Field(default_factory=list)
     enabled: bool = True
     capabilities: list[Capability] = Field(default_factory=lambda: ["monitor"])
 
@@ -50,6 +102,34 @@ class PoServer(BaseModel):
         for name, path in value.items():
             if not path.startswith("/"):
                 raise ValueError(f"{name} endpoint path must start with '/'")
+        return value
+
+    @field_validator("host_aliases")
+    @classmethod
+    def normalize_host_aliases(cls, value: list[str]) -> list[str]:
+        aliases: list[str] = []
+        for raw_alias in value:
+            alias = raw_alias.strip().lower().rstrip(".")
+            if (
+                not alias
+                or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789.-" for character in alias)
+                or alias.startswith((".", "-"))
+                or alias.endswith((".", "-"))
+            ):
+                raise ValueError("host aliases must be plain DNS hostnames")
+            if alias not in aliases:
+                aliases.append(alias)
+        return aliases
+
+    @field_validator("collectors")
+    @classmethod
+    def validate_collector_ids(
+        cls,
+        value: list[RtimsCollectorProfile],
+    ) -> list[RtimsCollectorProfile]:
+        ids = [profile.collector_id for profile in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("collector profile ids must be unique per server")
         return value
 
     def public_view(self) -> dict:
@@ -111,6 +191,12 @@ class Settings(BaseSettings):
     rtims_oracle_ddl_password: SecretStr = SecretStr("")
     rtims_pool_min: int = 1
     rtims_pool_max: int = 5
+    rtims_collector_enabled: bool = False
+    rtims_collector_startup_delay_seconds: int = Field(default=30, ge=0, le=3600)
+    rtims_collector_interval_seconds: int = Field(default=300, ge=30, le=86400)
+    rtims_collector_limit: int = Field(default=500, ge=100, le=5000)
+    rtims_collector_oracle_user: str = ""
+    rtims_collector_oracle_password: SecretStr = SecretStr("")
 
     po_servers_json: str = "[]"
     sap_po_user: str = ""
@@ -129,6 +215,13 @@ class Settings(BaseSettings):
     sap_directory_path: str = "/dir/read/ext"
     sap_hrd_channel_pattern: str = "JDBC4_Receiver_DIST_HRD*"
     sap_hrd_test_path: str = "/HttpAdapter/HttpMessageServlet"
+    sap_keystore_help_path: str = "/KeystoreHelp/basic?style=document"
+    sap_keystore_certificates_path: str = "/KeystoreService/KeystoreServiceApi"
+    sap_keystore_max_response_bytes: int = Field(
+        default=10_000_000,
+        ge=100_000,
+        le=100_000_000,
+    )
     sap_hrd_test_interface: str = ""
     sap_hrd_sender_services_json: str = "{}"
     sap_hana_host: str = ""
@@ -165,10 +258,18 @@ class Settings(BaseSettings):
         raw = json.loads(self.po_servers_json or "[]")
         servers = [PoServer.model_validate(item) for item in raw]
         seen: set[str] = set()
+        collector_instances: set[int] = set()
         for server in servers:
             if server.sid in seen:
                 raise ValueError(f"PO_SERVERS_JSON duplicate sid: {server.sid}")
             seen.add(server.sid)
+            for profile in server.collectors:
+                if profile.oracle_instance_id in collector_instances:
+                    raise ValueError(
+                        "PO_SERVERS_JSON duplicate collector oracle_instance_id: "
+                        f"{profile.oracle_instance_id}"
+                    )
+                collector_instances.add(profile.oracle_instance_id)
         return servers
 
     @property
@@ -200,6 +301,24 @@ class Settings(BaseSettings):
             and self.rtims_oracle_service
             and self.rtims_oracle_ddl_user
             and self.rtims_oracle_ddl_password.get_secret_value()
+        )
+
+    @property
+    def rtims_collector_oracle_username(self) -> str:
+        return self.rtims_collector_oracle_user.strip() or self.rtims_oracle_user.strip()
+
+    @property
+    def rtims_collector_oracle_secret(self) -> str:
+        collector_secret = self.rtims_collector_oracle_password.get_secret_value()
+        return collector_secret or self.rtims_oracle_password.get_secret_value()
+
+    @property
+    def rtims_collector_oracle_configured(self) -> bool:
+        return bool(
+            self.rtims_oracle_host
+            and self.rtims_oracle_service
+            and self.rtims_collector_oracle_username
+            and self.rtims_collector_oracle_secret
         )
 
     @property

@@ -13,7 +13,7 @@ _running_sids: set[str] = set()
 
 
 class CollectorService:
-    def run(self, server, username: str) -> dict:
+    def run(self, server, username: str, limit: int = 1000) -> dict:
         with _state_lock:
             if server.sid in _running_sids:
                 return {
@@ -28,7 +28,7 @@ class CollectorService:
         started = perf_counter()
         repository = CollectorRepository()
         try:
-            rows = MessageService().list_recent(server, 1000)
+            rows = MessageService().list_recent(server, limit)
             elapsed_ms = round((perf_counter() - started) * 1000)
             repository.save(server, "SUCCESS", len(rows), elapsed_ms)
             return {

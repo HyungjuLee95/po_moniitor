@@ -6,8 +6,9 @@
 1. `base_url`과 `port`로 해당 SID의 origin을 만든다.
 2. 서버별 `username`/`password`가 있으면 사용하고, 없거나 빈 값이면 공통 `SAP_PO_USER`/`SAP_PO_PASSWORD`를 사용한다.
 3. 서버별 `endpoint_paths`에 작업 경로가 있으면 사용하고, 없으면 대응하는 공통 `SAP_*_PATH` 값을 사용한다.
+4. WSDL이 별도 short hostname을 발행하면 해당 서버 `host_aliases`에 등록된 이름만 server origin으로 치환한다.
 
-지원하는 `endpoint_paths` 키는 `channels`, `channel_admin`, `adapter_monitor`, `aae_monitor`, `systatus`, `business_system`, `interface_monitor`, `directory`, `hrd_test`다. 값은 반드시 `/`로 시작해야 하며 내부 host 전체를 넣지 않는다.
+지원하는 `endpoint_paths` 키는 `channels`, `channel_admin`, `adapter_monitor`, `aae_monitor`, `systatus`, `business_system`, `interface_monitor`, `directory`, `hrd_test`, `keystore_help`, `keystore_certificates`다. 값은 반드시 `/`로 시작해야 하며 내부 host 전체를 넣지 않는다. `host_aliases`에는 scheme·port·path가 없는 DNS 이름만 넣는다.
 
 운영 모드 시작 시 `.env` registry의 서버 메타데이터를 `configuration.po_server`에 upsert해 사용자별 서버 FK와 동기화한다. 계정·비밀번호는 저장하지 않는다.
 

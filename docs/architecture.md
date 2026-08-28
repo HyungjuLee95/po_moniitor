@@ -15,6 +15,7 @@
   -> Next.js Frontend
      -> FastAPI Backend
         -> SAP PO Directory / Channel / Audit / InterfaceMonitor
+        -> SAP PO HANA (bounded Collector source)
         -> RTIMS Oracle
         -> PostgreSQL
         -> Oracle IFS / HANA (선택)
@@ -80,10 +81,10 @@ Excel 다운로드·수정
 | 시스템 | 목적 | 인증 위치 | 실패 처리 |
 |---|---|---|---|
 | SAP PO | 채널·Audit·Directory·InterfaceMonitor | backend `.env` | timeout, capability 오류, 부분 결과 |
-| RTIMS Oracle | 메시지·통계·리소스·Queue·장애 | backend `.env` | 비활성화 상태와 명시적 오류 |
-| PostgreSQL | 사용자·권한·개인 설정·cache·checkpoint | backend `.env` | transaction rollback과 health 점검 |
+| RTIMS Oracle | 메시지·통계·리소스·Queue·장애, Collector buffer·checkpoint | backend `.env` | 비활성화 상태와 명시적 오류 |
+| PostgreSQL | 사용자·권한·개인 설정·cache, profile 없는 Collector 호환 checkpoint | backend `.env` | transaction rollback과 health 점검 |
 | Oracle IFS | 선택적 데이터 동기화 | backend `.env` | 수동 재시도와 마지막 성공 상태 |
-| HANA | 선택적 HRD 보강 조회 | backend `.env` | 기본 SAP 결과 유지 |
+| HANA | 선택적 HRD 보강과 RTIMS Collector source | backend `.env` | bounded page와 profile별 실패 격리 |
 | Internal LLM | 마스킹된 장애 분석 | backend 루트 `.env`의 `LLM_API_URL` | JSON 계약 검증과 사용자 오류 표시 |
 
 ## 신뢰 경계와 보안
@@ -98,9 +99,11 @@ Excel 다운로드·수정
 - 대시보드 API는 독립적으로 로드하며 한 API 지연이 다른 widget을 막지 않는다.
 - 페이지를 유지한 채 기존 데이터를 보여주고 background refresh 결과만 교체한다.
 - Collector는 시간창·페이지·checkpoint 단위로 외부 시스템 부하를 제한한다.
+- RTIMS Collector는 HANA bounded page를 Oracle buffer·procedure에 순차 반영하고 Oracle checkpoint만 성공 시 전진한다.
 - 실제 임계값과 시간 단위는 사내 데이터 원본으로 검증하기 전 확정하지 않는다.
 
 ## 주요 설계 결정
 
 - [`ADR-001`](decisions/ADR-001-ai-md-pipeline.md): 기존 도메인 문서 계약을 보존한 AI MD 파이프라인 적용
+- [`ADR-002`](decisions/ADR-002-rtims-collector-storage.md): RTIMS Collector는 Oracle, 웹 애플리케이션 데이터는 PostgreSQL로 분리
 - 새 결정은 [`ADR-000-template.md`](decisions/ADR-000-template.md)를 복사해 기록한다.

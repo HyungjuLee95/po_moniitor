@@ -9,8 +9,13 @@ import type { User } from "../../core/types";
 type Collector = {
   sid: string;
   server_name: string;
+  collector_id?: string;
+  oracle_instance_id?: number;
+  delivery_semantics?: "BE" | "EO";
   status: string;
   last_success_at: string | null;
+  last_window_end?: string | null;
+  elapsed_ms?: number;
   item_count: number;
 };
 
@@ -34,18 +39,18 @@ export function CollectorsPage({ user, embedded = false }: { user: User; embedde
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const run = async (sids: string[]) => {
+  const run = async (sids: string[], collectorIds: string[] = []) => {
     setRunning(true);
     setNotice("");
     try {
       const payload = await apiFetch<{ data: Array<{ sid: string; status: string; fetched: number }> }>("/collectors/run", {
         method: "POST",
-        body: JSON.stringify({ sids }),
+        body: JSON.stringify({ sids, collector_ids: collectorIds }),
       });
       setNotice(payload.data.map((row) => `${row.sid} ${row.fetched}건`).join(" · "));
       await load();
     } catch {
-      setNotice("수동 수집에 실패했습니다. SAP PO 연결과 권한을 확인하세요.");
+      setNotice("수동 수집에 실패했습니다. HANA·RTIMS Oracle 연결과 권한을 확인하세요.");
     } finally {
       setRunning(false);
     }
@@ -60,11 +65,17 @@ export function CollectorsPage({ user, embedded = false }: { user: User; embedde
       {notice && <p className="inline-notice">{notice}</p>}
       <div className="collector-grid">
         {rows.map((row) => (
-          <article key={row.sid}>
-            <header><span>{row.sid}</span><i className={`status-pill ${row.status.toLowerCase()}`}>{row.status}</i></header>
+          <article key={`${row.sid}:${row.collector_id ?? "compatibility"}`}>
+            <header><span>{row.sid}{row.collector_id ? ` · ${row.collector_id}` : ""}</span><i className={`status-pill ${row.status.toLowerCase()}`}>{row.status}</i></header>
             <h3>{row.server_name}</h3>
-            <dl><div><dt>마지막 성공</dt><dd>{row.last_success_at ? new Date(row.last_success_at).toLocaleString("ko-KR") : "아직 없음"}</dd></div><div><dt>수집 건수</dt><dd>{row.item_count.toLocaleString()}</dd></div></dl>
-            {canRun && <button className="secondary-button" onClick={() => void run([row.sid])} disabled={running}>이 서버 수집</button>}
+            <dl>
+              <div><dt>마지막 성공</dt><dd>{row.last_success_at ? new Date(row.last_success_at).toLocaleString("ko-KR") : "아직 없음"}</dd></div>
+              <div><dt>수집 건수</dt><dd>{row.item_count.toLocaleString()}</dd></div>
+              {row.delivery_semantics && <div><dt>수집 유형</dt><dd>{row.delivery_semantics}</dd></div>}
+              {typeof row.elapsed_ms === "number" && <div><dt>소요 시간</dt><dd>{(row.elapsed_ms / 1000).toFixed(3)}초</dd></div>}
+              {row.last_window_end && <div><dt>Checkpoint</dt><dd>{row.last_window_end}</dd></div>}
+            </dl>
+            {canRun && <button className="secondary-button" onClick={() => void run([row.sid], row.collector_id ? [row.collector_id] : [])} disabled={running}>{row.collector_id ? "이 프로필 수집" : "이 서버 수집"}</button>}
           </article>
         ))}
       </div>
